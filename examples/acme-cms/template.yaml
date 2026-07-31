@@ -1,0 +1,55 @@
+name: acme-cms
+image: cawl/acme-cms
+
+# The args this template takes. cawl validates them against this declaration and
+# passes them to the hooks below; it attaches no meaning to any of them. They are
+# not secrets — they're stored on the env and shown in `cawl ls`.
+params:
+  branch:
+    default: main
+    description: git branch, tag or SHA to check out
+    pattern: '^[A-Za-z0-9._/-]+$'
+  mode:
+    default: dev
+    choices: [dev, review]
+    description: how to start the stack — review runs it the way production would
+
+# Shell run inside the box. `{{ branch }}` expands to a shell-quoted literal;
+# `$branch`, `$mode`, `$id` and `$template` are exported too.
+hooks:
+  # Baking the golden image (`cawl refresh-image acme-cms`): clone, build, restore
+  # the ~200MB anonymized dump into the compose volume, migrate, stop. Whatever the
+  # hook leaves on disk gets published — so envs cloned from this image boot in
+  # seconds with the DB already seeded.
+  build: |
+    rm -rf /srv/app
+    git clone git@github.com:acme/acme-cms.git /srv/app
+    cd /srv/app && git checkout {{ branch }}
+    docker compose build
+    docker compose pull --ignore-buildable || true
+    docker compose up -d
+    aws s3 cp s3://acme-dumps/acme/latest.sql.gz - \
+      | gunzip | docker compose exec -T db psql -U app -d acme
+    docker compose run --rm app python manage.py migrate
+    docker compose stop
+
+  # Each new env, once Docker is up. The image already has the repo and a seeded
+  # DB; this moves it onto the branch you asked for and starts the stack. Review
+  # envs swap runserver for gunicorn (DEBUG off, no source mount).
+  provision: |
+    cd /srv/app
+    git fetch --all --quiet && git checkout {{ branch }}
+    if [ "$mode" = review ]; then
+      docker compose -f docker-compose.yml -f compose.review.yml up -d
+    else
+      docker compose up -d
+    fi
+
+# Default exposures, live as soon as the env is up: `web` is the primary and
+# answers at https://<id>.<domain>, behind the daemon's sign-in gate. Add
+# viewers or more ports later with `cawl expose <id> <port> --name --access`.
+expose:
+  web: 8000
+
+defaults:
+  ttl: none  # persistent unless `up --ttl` (or a token max_ttl) says otherwise

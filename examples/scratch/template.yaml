@@ -1,0 +1,14 @@
+name: scratch
+image: cawl/base   # clone the shared base golden image (not a per-template one)
+# A blank/scratch dev box. No `params`, no `hooks`, no `expose`: boots the base
+# golden image (Ubuntu + Docker + git + tooling + a `dev` user) and stops there.
+#
+# SSH in with agent forwarding and clone your own repos:
+#     ssh dev@scratch-<id>.<tailnet>        # ForwardAgent yes
+#     git clone git@github.com:you/yourapp  # uses your forwarded keys
+#     docker compose up                     # the repo brings its own services
+#
+# Access is SSH/tailnet-only (no public URL); persistent (TTL = none).
+
+defaults:
+  ttl: none

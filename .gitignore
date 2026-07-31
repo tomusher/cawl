@@ -1,0 +1,17 @@
+# secrets / local config
+**/.env
+server/deploy/incus/
+**/*.key
+
+# local db + runtime
+**/db.sqlite3
+server/.dynamic/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# zensical build output
+site/

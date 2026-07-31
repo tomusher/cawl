@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Authorize cawl CLI</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 30rem; margin: 4rem auto;
+         text-align: center; line-height: 1.5; }
+  button { font-size: 1rem; padding: .6rem 1.4rem; border: 0; border-radius: 6px;
+           background: #2d6cdf; color: #fff; cursor: pointer; }
+  .who { color: #555; }
+</style>
+<h2>Authorize the cawl CLI</h2>
+<p class="who">Signed in as <strong>{{ user.get_username }}</strong>.</p>
+<p>This will create an API token for the command-line tool on this machine.</p>
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="callback" value="{{ callback }}">
+  <input type="hidden" name="state" value="{{ state }}">
+  <button type="submit">Authorize</button>
+</form>

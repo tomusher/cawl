@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cawl
+      POSTGRES_USER: cawl
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cawl -d cawl"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ../../..
+      dockerfile: server/deploy/docker/Dockerfile
+    image: cawl-server:local
+    env_file: .env
+    environment:
+      CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
+      CAWL_INGRESS_DIR: /var/lib/cawl/dynamic
+      # This is the Docker-network address Traefik uses for forward auth.
+      CAWL_DAEMON_URL: http://cawl:8000
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  cawl:
+    image: cawl-server:local
+    env_file: .env
+    environment:
+      CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
+      CAWL_INGRESS_DIR: /var/lib/cawl/dynamic
+      CAWL_DAEMON_URL: http://cawl:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - traefik-dynamic:/var/lib/cawl/dynamic
+      # Put the Incus client.crt, client.key, and server.crt in this directory.
+      - ./secrets/incus:/run/secrets/incus:ro
+      # The SSH CA is optional, but required for `cawl ssh`.
+      - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
+    ports:
+      - "${CAWL_API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  reaper:
+    image: cawl-server:local
+    env_file: .env
+    environment:
+      CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
+      CAWL_INGRESS_DIR: /var/lib/cawl/dynamic
+      CAWL_DAEMON_URL: http://cawl:8000
+    command: ["/bin/sh", "-c", "while true; do python manage.py reap; sleep 60; done"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - traefik-dynamic:/var/lib/cawl/dynamic
+      - ./secrets/incus:/run/secrets/incus:ro
+      - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3.3
+    command: ["--configFile=/etc/traefik/traefik.yml"]
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik-dynamic:/etc/traefik/dynamic:ro
+      - traefik-acme:/acme
+    depends_on:
+      cawl:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  traefik-dynamic:
+  traefik-acme:

@@ -1,0 +1,26 @@
+[project]
+name = "cawl-server"
+version = "0.1.0"
+description = "Django control-plane daemon for cawl sandbox environments"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0",
+    "django-ninja>=1.6",
+    "gunicorn>=26.0",           # WSGI server (see deploy/cawl-daemon.service)
+    "pyyaml>=6.0.3",            # cawl_core config/ingress
+    "dj-database-url>=3.1",     # DATABASE_URL parsing
+]
+
+[project.optional-dependencies]
+# Human SSO. Enable with CAWL_OIDC_ENABLED=1 and the OIDC_* settings.
+oidc = ["mozilla-django-oidc>=5.0"]
+# Production database.
+postgres = ["psycopg[binary]>=3.3"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# The daemon bundles the domain library (cawl_core) + the Django project.
+include = ["cawl_core*", "cawlserver*", "environments*"]

@@ -1,0 +1,8 @@
+# Overlay applied on top of docker-compose.yml for review environments.
+# Code is baked into the image at a SHA (no bind-mount), served by gunicorn.
+services:
+  app:
+    command: gunicorn acme.wsgi:application -b 0.0.0.0:8000 --workers 3
+    environment:
+      DJANGO_DEBUG: "0"
+    volumes: []   # drop the dev source bind-mount

@@ -1,0 +1,54 @@
+# Traefik static config for cawl exposures.
+#
+# One public entrypoint for everyone. cawl's daemon writes one dynamic file per
+# environment into the watched directory below — a router per exposure (any
+# free label, one level under the domain), each behind the `cawl-auth`
+# forward-auth middleware, which asks the daemon per request whether the
+# visitor may view that exposure. The daemon also writes `_cawl.yml` with the
+# middleware itself, its own service, and the auth-host router — so nothing
+# here needs editing when environments come and go.
+#
+# Needs, once:
+#   - wildcard DNS: *.<CAWL_BASE_DOMAIN> -> this host's public IP
+#   - a DNS-provider token in /etc/cawl/traefik.env for the DNS-01 challenge
+#
+# Runs where it can reach both the internet (:443) and the instance IPs on the
+# Incus bridge (10.x) — the Incus host, or any host with the bridge subnet
+# routed over the tailnet.
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint: { to: websecure, scheme: https }
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: le
+        # One wildcard cert covers every exposure (flat <name>--<id> labels
+        # keep them all one level deep) and the auth host. Individual
+        # hostnames never reach a CA, so they never appear in CT logs.
+        domains:
+          - main: "sbx.example.com"
+            sans: ["*.sbx.example.com"]
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic   # == CAWL_INGRESS_DIR (daemon writes here)
+    watch: true
+
+certificatesResolvers:
+  le:
+    acme:
+      email: ops@example.com
+      storage: /etc/traefik/acme.json
+      # Wildcard certs require DNS-01. Set the provider's token in traefik.env
+      # (e.g. CF_DNS_API_TOKEN for Cloudflare).
+      dnsChallenge:
+        provider: cloudflare
+
+log: { level: INFO }
+accessLog: {}
+api: { dashboard: false }

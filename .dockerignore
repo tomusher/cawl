@@ -1,0 +1,12 @@
+.git
+.cache
+.venv
+**/.venv
+__pycache__
+**/__pycache__
+*.pyc
+*.sqlite3
+server/.env
+site
+secrets
+.env

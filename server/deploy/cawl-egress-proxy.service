@@ -1,0 +1,17 @@
+[Unit]
+Description=cawl private HTTPS CONNECT egress proxy
+After=network-online.target
+
+[Service]
+User=cawl
+Group=cawl
+EnvironmentFile=/etc/cawl/egress-proxy.env
+WorkingDirectory=/srv/cawl/server
+ExecStart=/srv/cawl/.venv/bin/python -m cawl_core.egress_proxy $CAWL_EGRESS_PROXY_ARGS
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
