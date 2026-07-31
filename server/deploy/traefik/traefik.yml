@@ -14,9 +14,10 @@ entryPoints:
       tls:
         certResolver: le
         domains:
-          - main: "${CAWL_BASE_DOMAIN}"
+          - main: "${CAWL_API_DOMAIN}"
+          - main: "${CAWL_PUBLIC_DOMAIN}"
             sans:
-              - "*.${CAWL_BASE_DOMAIN}"
+              - "*.${CAWL_PUBLIC_DOMAIN}"
 
 providers:
   file:

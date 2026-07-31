@@ -30,27 +30,57 @@ networking, and egress controls.
 
 ## Deploy the control plane
 
-Copy the whole `server/deploy/` directory to the control-plane host. It is a
-self-contained Compose deployment: `compose.yaml`, `.env.example`, Traefik
-configuration, and an empty `secrets/` directory are all included.
+Grab the latest deployment files from [GitHub](https://github.com/tomusher/cawl/releases):
 
 ```bash
-cd deploy
-cp .env.example .env
-mkdir -p secrets/incus
-# Copy client.crt, client.key, and server.crt to secrets/incus/.
-# Generate secrets/ssh_ca if developers will use `cawl ssh`.
-docker compose up -d
+mkdir -p /srv/cawl
+cd  /srv/cawl
+curl -L https://github.com/tomusher/cawl/releases/download/v0.1.0/cawl-server-deploy-v0.1.0.tar.gz | tar -xzf --strip-components=1
 ```
 
-Edit `.env` before starting. It is the canonical deployment configuration.
-Compose first migrates the database, then starts the daemon and reaper. The API
-is published on `${CAWL_API_PORT:-8000}`; Traefik owns ports 80 and 443.
+Then make a copy of the `.env.example` file and edit it to your liking.
 
-Set `CAWL_BASE_DOMAIN`, then point both its apex and wildcard DNS records to
-the Traefik host. The Traefik container must be able to route to instance IPs,
-not merely the Incus REST API. `host.docker.internal` resolves to Docker's host
-gateway; use another routable address in `CAWL_INCUS_URL` when Incus is remote.
+```bash
+cp .env.example .env
+```
+
+Edit `.env` before starting, you'll need to set these things:
+
+- `CAWL_API_DOMAIN`: control-plane API hostname (e.g. `cawl.example.com`)
+- `CAWL_PUBLIC_DOMAIN`: public sandbox namespace (e.g. `public.example.com`)
+- `CAWL_INCUS_URL`: the Incus REST API URL (e.g. `https://incus.example.com` or `host.docker.internal:8443`)
+- `POSTGRES_PASSWORD`: a nice random password
+- `CAWL_SECRET_KEY`: a random secret key
+
+Point the apex of `CAWL_API_DOMAIN` at the API network endpoint. Point both the apex and wildcard of `CAWL_PUBLIC_DOMAIN` at the public Traefik endpoint.
+
+The daemon is served at `https://$CAWL_API_DOMAIN` through Traefik. Set `CAWL_API_URL` to that URL for the CLI. 
+
+Before the first start or an update, run the bootstrap script. It starts Postgres, applies migrations, seeds Traefik's static configuration volume, and starts the stack:
+
+```bash
+./bootstrap.sh
+```
+
+## Let the cawl server use the Incus API
+
+The server uses Incus's HTTPS API with its own client certificate. On the
+Incus host, create the certificate and trust it:
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \
+  -keyout client.key -out client.crt -days 3650 -subj "/CN=cawl-server"
+sudo incus config trust add-certificate client.crt --name cawl-server
+
+cp /var/lib/incus/server.crt server.crt
+```
+
+Copy `client.crt`, `client.key`, and `/var/lib/incus/server.crt` to `/srv/cawl/secrets`:
+
+```bash
+cp client.crt client.key /srv/cawl/secrets/
+cp /var/lib/incus/server.crt /srv/cawl/secrets/
+```
 
 ## SSH access
 
@@ -78,6 +108,35 @@ A wildcard record is enough for every exposure:
 The Compose Traefik service obtains and renews the wildcard certificate with
 the DNS challenge provider configured in `.env`. Tailscale Funnel cannot serve
 this wildcard domain; use a public IP or suitable tunnel.
+
+## Hardening the control-plane API with Tailscale
+
+The default deployment makes the API available at `CAWL_API_DOMAIN` through
+Traefik. Sandbox exposures still need public HTTPS, but the control-plane API
+can be limited to tailnet source addresses without changing how Traefik
+publishes it. Set this in `.env` and restart the stack:
+
+```dotenv
+# Comma-separated CIDRs; these are Tailscale's default IPv4 and IPv6 ranges.
+CAWL_API_PRIVATE_SOURCE_RANGES=100.64.0.0/10,fd7a:115c:a1e0::/48
+```
+
+When `CAWL_API_PRIVATE_SOURCE_RANGES` is set, Traefik applies it as an IP
+allow-list to the API router. Leave it unset for a public API. Replace the
+example with the CIDRs for another private network. Public requests to the API
+are rejected, while sandbox exposure routers remain public.
+
+Ensure tailnet clients reach the Traefik host through its Tailscale address.
+For example, use split DNS or your existing publishing configuration so
+`CAWL_API_DOMAIN` resolves to that address for tailnet clients. The CLI URL
+does not change:
+
+```bash
+export CAWL_API_URL=https://cawl.example.com
+```
+
+This restricts network reachability only; API tokens and the daemon's normal
+authorization checks still apply.
 
 ## People, tokens, and templates
 

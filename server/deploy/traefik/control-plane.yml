@@ -1,0 +1,29 @@
+# The control-plane API is public only through Traefik. Keep this file static:
+# cawl writes per-environment routes beside it. Defining
+# CAWL_API_PRIVATE_SOURCE_RANGES applies an IP allow-list to this router.
+http:
+  routers:
+    cawl-api:
+      rule: 'Host(`{{ env "CAWL_API_DOMAIN" }}`)'
+      service: cawl-api-daemon
+      entryPoints:
+        - websecure
+      tls: {}
+{{ if env "CAWL_API_PRIVATE_SOURCE_RANGES" }}
+      middlewares:
+        - cawl-api-private
+{{ end }}
+  services:
+    cawl-api-daemon:
+      loadBalancer:
+        servers:
+          - url: "http://cawl:8000"
+{{ if env "CAWL_API_PRIVATE_SOURCE_RANGES" }}
+  middlewares:
+    cawl-api-private:
+      ipAllowList:
+        sourceRange:
+{{ range $range := splitList "," (env "CAWL_API_PRIVATE_SOURCE_RANGES") }}
+          - "{{ $range }}"
+{{ end }}
+{{ end }}

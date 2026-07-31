@@ -18,7 +18,7 @@ _INGRESS = tempfile.mkdtemp()
 
 
 @override_settings(CAWL_RUNTIME="fake", CAWL_INGRESS_DIR=_INGRESS,
-                   CAWL_BASE_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
+                   CAWL_PUBLIC_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
                    CAWL_TAILSCALE_AUTHKEY="tskey-test")
 class ApiTestCase(TestCase):
     def setUp(self):
@@ -412,7 +412,7 @@ _HOST_PUB = _keygen("host").with_suffix(".pub").read_text().strip()
 
 
 @override_settings(CAWL_RUNTIME="fake", CAWL_INGRESS_DIR=_INGRESS,
-                   CAWL_BASE_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
+                   CAWL_PUBLIC_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
                    CAWL_TAILSCALE_AUTHKEY="tskey-test",
                    CAWL_SSH_CA_KEY=str(_CA_KEY))
 class SharingApiTestCase(ApiTestCase):
@@ -508,7 +508,7 @@ class SharingApiTestCase(ApiTestCase):
 
 
 @override_settings(CAWL_RUNTIME="fake", CAWL_INGRESS_DIR=_INGRESS,
-                   CAWL_BASE_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
+                   CAWL_PUBLIC_DOMAIN="review.example.com", CAWL_TAILNET="t.ts.net",
                    CAWL_TAILSCALE_AUTHKEY="tskey-test")
 class StopStartApiTestCase(TestCase):
     """Pause without deleting, over the API."""
@@ -598,7 +598,7 @@ class StopStartApiTestCase(TestCase):
 
 
 @override_settings(CAWL_RUNTIME="fake", CAWL_INGRESS_DIR=tempfile.mkdtemp(),
-                   CAWL_BASE_DOMAIN="review.example.com",
+                   CAWL_PUBLIC_DOMAIN="review.example.com",
                    CAWL_AUTH_HOST="auth.review.example.com",
                    CAWL_TAILNET="t.ts.net")
 class ExposureTestCase(TestCase):

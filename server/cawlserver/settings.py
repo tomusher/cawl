@@ -57,8 +57,13 @@ if not DEBUG and SECRET_KEY in {
 }:
     raise ImproperlyConfigured(
         "CAWL_SECRET_KEY must be set to a strong, unique value when CAWL_DEBUG=0")
-ALLOWED_HOSTS = [h.strip() for h in
-                 os.environ.get("CAWL_ALLOWED_HOSTS", "").split(",") if h.strip()]
+# Every public exposure is a subdomain of this domain. Unless the operator
+# provides an explicit allow-list, accept it and all of its subdomains.
+CAWL_PUBLIC_DOMAIN = os.environ.get("CAWL_PUBLIC_DOMAIN", "public.example.com")
+CAWL_API_DOMAIN = os.environ.get("CAWL_API_DOMAIN", "cawl.example.com")
+_configured_allowed_hosts = [h.strip() for h in
+                             os.environ.get("CAWL_ALLOWED_HOSTS", "").split(",") if h.strip()]
+ALLOWED_HOSTS = _configured_allowed_hosts or ["." + CAWL_PUBLIC_DOMAIN, CAWL_API_DOMAIN]
 # Reaching the daemon by MagicDNS name over the (trusted) tailnet should just
 # work — allow any *.<tailnet> host. Raw tailnet IPs still need listing above.
 _tailnet = os.environ.get("CAWL_TAILNET", "").strip()
@@ -70,12 +75,13 @@ if _tailnet and ALLOWED_HOSTS and "*" not in ALLOWED_HOSTS:
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = int(os.environ.get(
-    "CAWL_HSTS_SECONDS", "0" if DEBUG else "31536000"))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = _bool("CAWL_HSTS_INCLUDE_SUBDOMAINS", "1")
+CAWL_ENABLE_HSTS = _bool("CAWL_ENABLE_HSTS", "0")
+if CAWL_ENABLE_HSTS:
+    SECURE_HSTS_SECONDS = int(os.environ.get("CAWL_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = _bool("CAWL_HSTS_INCLUDE_SUBDOMAINS", "1")
 # Usually same-origin requests need no entry. This explicit list supports an
 # operator's intentional cross-origin browser clients without trusting every
-# untrusted workload under CAWL_BASE_DOMAIN.
+# untrusted workload under CAWL_PUBLIC_DOMAIN.
 CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip("/") for origin in
     os.environ.get("CAWL_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
 
@@ -182,7 +188,7 @@ LOGIN_URL = "/oidc/authenticate/" if OIDC_ENABLED else "/admin/login/"
 CAWL_RUNTIME = os.environ.get("CAWL_RUNTIME", "incus_api")
 # Which named backend `up` lands on when the request (or token) doesn't say.
 # The registry itself lives in environments.services.get_backends.
-CAWL_DEFAULT_BACKEND = os.environ.get("CAWL_DEFAULT_BACKEND", "container")
+CAWL_DEFAULT_BACKEND = os.environ.get("CAWL_DEFAULT_BACKEND", "vm")
 # Operator-installed backends, merged over the built-ins (and able to shadow
 # them): "name=dotted.path,…" naming Runtime subclasses pip-installed into the
 # daemon's venv. Each is constructed with no args and reads its own env vars.
@@ -233,9 +239,8 @@ CAWL_INGRESS_DIR = os.environ.get("CAWL_INGRESS_DIR", str(BASE_DIR / ".dynamic")
 # Every exposure lives one label under this domain (<id>.<domain> or
 # <name>--<id>.<domain>), so one wildcard DNS record and one wildcard cert
 # cover all of them — and individual hostnames never reach CT logs.
-CAWL_BASE_DOMAIN = os.environ.get("CAWL_BASE_DOMAIN", "sbx.example.com")
 # Where magic-link login + SSO live. Served by this daemon; Traefik routes it.
-CAWL_AUTH_HOST = os.environ.get("CAWL_AUTH_HOST", f"auth.{CAWL_BASE_DOMAIN}")
+CAWL_AUTH_HOST = os.environ.get("CAWL_AUTH_HOST", f"auth.{CAWL_PUBLIC_DOMAIN}")
 # How *Traefik* reaches this daemon (internal URL) — for the forward-auth
 # subrequest and for proxying the auth host + /.cawl/ paths. Empty = ingress
 # files are written without the shared auth pieces (dev/tests).
@@ -248,11 +253,11 @@ CAWL_WEB_SESSION_TTL = int(os.environ.get("CAWL_WEB_SESSION_TTL", str(12 * 3600)
 CAWL_MAGIC_TTL = int(os.environ.get("CAWL_MAGIC_TTL", str(4 * 3600)))
 EMAIL_BACKEND = os.environ.get(
     "CAWL_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-DEFAULT_FROM_EMAIL = os.environ.get("CAWL_EMAIL_FROM", f"cawl@{CAWL_BASE_DOMAIN}")
-# The daemon answers requests for the auth host and (on /.cawl/*) every
-# exposure host, all under the base domain.
-if ALLOWED_HOSTS and "*" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS += ["." + CAWL_BASE_DOMAIN, CAWL_AUTH_HOST]
+DEFAULT_FROM_EMAIL = os.environ.get("CAWL_EMAIL_FROM", f"cawl@{CAWL_PUBLIC_DOMAIN}")
+# A custom auth host may live outside CAWL_PUBLIC_DOMAIN. Include it when using
+# the automatic allow-list; CAWL_ALLOWED_HOSTS remains a complete override.
+if not _configured_allowed_hosts and CAWL_AUTH_HOST not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(CAWL_AUTH_HOST)
 CAWL_TAILNET = os.environ.get("CAWL_TAILNET", "ts.net")
 CAWL_IMAGE_PREFIX = os.environ.get("CAWL_IMAGE_PREFIX", "cawl")
 CAWL_DEFAULT_QUOTA = int(os.environ.get("CAWL_DEFAULT_QUOTA", "0")) or None

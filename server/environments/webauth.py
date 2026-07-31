@@ -84,7 +84,7 @@ def principal_for_email(email: str) -> Principal:
 
 
 def _exposure_for_host(host: str) -> tuple[Environment, Exposure] | None:
-    label = exposure_label(host, settings.CAWL_BASE_DOMAIN)
+    label = exposure_label(host, settings.CAWL_PUBLIC_DOMAIN)
     if not label:
         return None
     exp = (Exposure.objects.filter(name=label, environment__status__in=ALIVE)
@@ -195,7 +195,7 @@ def _valid_next(next_url: str) -> tuple[str, str, str] | None:
     if u.scheme not in ("https", "http") or not u.hostname:
         return None
     host = u.hostname.lower()
-    if not exposure_label(host, settings.CAWL_BASE_DOMAIN):
+    if not exposure_label(host, settings.CAWL_PUBLIC_DOMAIN):
         return None
     path = u.path or "/"
     if u.query:

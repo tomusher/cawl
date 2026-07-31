@@ -178,7 +178,7 @@ def build_egress() -> EgressProvider:
 
 def build_ingress() -> TraefikIngress:
     return TraefikIngress(
-        settings.CAWL_INGRESS_DIR, settings.CAWL_BASE_DOMAIN,
+        settings.CAWL_INGRESS_DIR, settings.CAWL_PUBLIC_DOMAIN,
         forward_auth_url=settings.CAWL_FORWARD_AUTH_URL,
         daemon_url=settings.CAWL_DAEMON_URL,
         auth_host=settings.CAWL_AUTH_HOST,

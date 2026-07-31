@@ -14,17 +14,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  migrate:
-    image: ghcr.io/tomusher/cawl-server:main
-    env_file: .env
-    environment:
-      CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
-    command: ["python", "manage.py", "migrate", "--noinput"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
   cawl:
     image: ghcr.io/tomusher/cawl-server:main
     env_file: .env
@@ -40,11 +29,6 @@ services:
       - ./secrets/incus:/run/secrets/incus:ro
       # The SSH CA is optional, but required for `cawl ssh`.
       - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
-    ports:
-      - "${CAWL_API_PORT:-8000}:8000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
 
   reaper:
@@ -61,9 +45,6 @@ services:
       - traefik-dynamic:/var/lib/cawl/dynamic
       - ./secrets/incus:/run/secrets/incus:ro
       - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
 
   traefik:
