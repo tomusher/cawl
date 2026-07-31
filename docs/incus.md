@@ -35,8 +35,8 @@ cp /var/lib/incus/server.crt server.crt
 ```
 
 Copy `client.crt`, `client.key`, and `server.crt` to
-`server/deploy/docker/secrets/incus/`. Compose mounts them read-only and the
-canonical `server/deploy/docker/.env.example` points cawl at:
+`server/deploy/secrets/incus/`. Compose mounts them read-only and the
+canonical `server/deploy/.env.example` points cawl at:
 
 ```ini
 CAWL_RUNTIME=incus_api
