@@ -78,3 +78,8 @@ For whoever runs the server:
 
 Deploy specifics (certificates, systemd units) are in
 [`server/deploy/README.md`](server/deploy/README.md).
+
+## License
+
+Copyright 2026 the cawl authors. Licensed under the
+[Apache License 2.0](LICENSE).
