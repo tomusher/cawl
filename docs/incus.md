@@ -31,25 +31,23 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \
   -keyout client.key -out client.crt -days 3650 -subj "/CN=cawl-daemon"
 sudo incus config trust add-certificate client.crt --name cawl-daemon
 
-sudo install -d -m755 /etc/cawl/incus
-sudo install -m600 client.key /etc/cawl/incus/client.key
-sudo install -m644 client.crt /etc/cawl/incus/client.crt
-sudo cp /var/lib/incus/server.crt /etc/cawl/incus/server.crt
+cp /var/lib/incus/server.crt server.crt
 ```
 
-The daemon configuration then points at Incus:
+Copy `client.crt`, `client.key`, and `server.crt` to
+`server/deploy/docker/secrets/incus/`. Compose mounts them read-only and the
+canonical `server/deploy/docker/.env.example` points cawl at:
 
 ```ini
 CAWL_RUNTIME=incus_api
-CAWL_DEFAULT_BACKEND=vm
-CAWL_INCUS_URL=https://127.0.0.1:8443
-CAWL_INCUS_CLIENT_CERT=/etc/cawl/incus/client.crt
-CAWL_INCUS_CLIENT_KEY=/etc/cawl/incus/client.key
-CAWL_INCUS_SERVER_CERT=/etc/cawl/incus/server.crt
+CAWL_INCUS_URL=https://host.docker.internal:8443
+CAWL_INCUS_CLIENT_CERT=/run/secrets/incus/client.crt
+CAWL_INCUS_CLIENT_KEY=/run/secrets/incus/client.key
+CAWL_INCUS_SERVER_CERT=/run/secrets/incus/server.crt
 ```
 
-If the daemon runs on another machine, replace `127.0.0.1` with the Incus
-host's reachable API address and restrict that API address with a firewall.
+For remote Incus, replace `host.docker.internal` with its reachable API address
+and restrict that API address with a firewall.
 The certificate private key and the Incus API are both administrator-level
 access; do not put either in an environment VM.
 
@@ -90,19 +88,11 @@ sudo incus network create cawl-agent \
 
 The VM network ACL only allows traffic to the proxy. cawl registers each VM's
 source address and server-selected policy; the proxy has no global allow-host
-flag. Start the proxy with its root-owned policy document:
-
-```bash
-sudo install -m644 server/deploy/cawl-egress-proxy.service /etc/systemd/system/
-sudo tee /etc/cawl/egress-proxy.env >/dev/null <<'EOF'
-CAWL_EGRESS_PROXY_ARGS=--listen 10.42.0.1:3128 --policy-store /var/lib/cawl/egress-policies.json
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now cawl-egress-proxy
-```
-
-Set `CAWL_EGRESS_ALLOWED_HOSTS=example.com,github.com` and
-`CAWL_EGRESS_POLICY_STORE=/var/lib/cawl/egress-policies.json` on the daemon.
+flag. Run an operator-managed private proxy with a root-owned policy document;
+it is deliberately not part of the Compose control-plane stack. Set
+`CAWL_EGRESS_ALLOWED_HOSTS=example.com,github.com` and
+`CAWL_EGRESS_POLICY_STORE=/var/lib/cawl/egress-policies.json` in Compose's
+`.env`, and ensure the proxy can read that policy store.
 Names are exact, normalized DNS names; no suffixes, wildcards, or IP literals.
 
 Next, create and attach an Incus network ACL. An ACL is a named set of

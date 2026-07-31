@@ -15,16 +15,10 @@ services:
     restart: unless-stopped
 
   migrate:
-    build:
-      context: ../../..
-      dockerfile: server/deploy/docker/Dockerfile
-    image: cawl-server:local
+    image: ghcr.io/tomusher/cawl-server:main
     env_file: .env
     environment:
       CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
-      CAWL_INGRESS_DIR: /var/lib/cawl/dynamic
-      # This is the Docker-network address Traefik uses for forward auth.
-      CAWL_DAEMON_URL: http://cawl:8000
     command: ["python", "manage.py", "migrate", "--noinput"]
     depends_on:
       postgres:
@@ -32,7 +26,7 @@ services:
     restart: "no"
 
   cawl:
-    image: cawl-server:local
+    image: ghcr.io/tomusher/cawl-server:main
     env_file: .env
     environment:
       CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
@@ -54,7 +48,7 @@ services:
     restart: unless-stopped
 
   reaper:
-    image: cawl-server:local
+    image: ghcr.io/tomusher/cawl-server:main
     env_file: .env
     environment:
       CAWL_DATABASE_URL: postgresql://cawl:${POSTGRES_PASSWORD}@postgres:5432/cawl
@@ -73,7 +67,7 @@ services:
     restart: unless-stopped
 
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.7
     command: ["--configFile=/etc/traefik/traefik.yml"]
     env_file: .env
     ports:

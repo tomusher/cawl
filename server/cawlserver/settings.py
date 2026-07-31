@@ -22,7 +22,7 @@ if str(BASE_DIR) not in sys.path:
 
 def _load_env_file(path: Path) -> None:
     """Minimal .env loader (no dependency). Real env vars win over the file, so
-    it's safe alongside systemd's EnvironmentFile."""
+    real process environment."""
     if not path.exists():
         return
     for line in path.read_text().splitlines():
@@ -79,7 +79,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = _bool("CAWL_HSTS_INCLUDE_SUBDOMAINS", "1")
 CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip("/") for origin in
     os.environ.get("CAWL_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
 
-# -- logging: everything to stdout (systemd journal / container logs) ------
+# -- logging: everything to stdout (container logs) -------------------------
 LOG_LEVEL = os.environ.get("CAWL_LOG_LEVEL", "INFO").upper()
 LOGGING = {
     "version": 1,

@@ -48,6 +48,13 @@ incus delete incus-check --force
 
 ## Set up the cawl server
 
+Create a directory for cawl and related files:
+
+```bash
+mkdir -p /srv/cawl
+```
+
+Copy the example [environment file](server/deploy/daemon.env.example) and [compose file](server/deploy/docker-compose.yml), then edit them to your liking:
 
 
 Install Incus with a ZFS pool and its default bridge, then bake the image

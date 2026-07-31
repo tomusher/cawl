@@ -1,4 +1,4 @@
-"""Destroy expired environments. Run on a systemd timer (see deploy/)."""
+"""Destroy expired environments. Run by the Compose reaper service."""
 
 from django.core.management.base import BaseCommand
 

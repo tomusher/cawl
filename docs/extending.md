@@ -4,8 +4,8 @@ cawl has three extension points an administrator can build on, in increasing
 order of ambition: **access providers** (how developers' machines reach a box's
 sshd), **backends** (what a box *is*: an Incus VM, a container, or something
 else entirely), and the **control plane** itself. The first two are
-installable: write a class, pip-install it into the daemon's venv, name it in
-`daemon.env`. The third is a library you embed.
+installable: write a class, include it in the control-plane image, and name it
+in Compose's `.env`. The third is a library you embed.
 
 A rule that holds everywhere: extensions plug in at the daemon, by the
 operator. Templates never choose networking or compute. A template describes
@@ -18,8 +18,8 @@ untrusted template hook *will* reach.
 by the daemon. Either of these works:
 
 ```bash
-cd server && uv pip install cawl-firecracker     # a published package
-# or drop my_backends.py somewhere on the daemon's PYTHONPATH
+# Add a package to the control-plane image, then rebuild and publish it.
+# Or include my_backends.py somewhere on the image's PYTHONPATH.
 ```
 
 Classes named by dotted path are constructed **with no arguments** and read

@@ -463,7 +463,7 @@ cawl core as a library:
   the ControlPlane enforces authz. 401/403/404/409 mapped from cawl exceptions.
 - **Admin**: Django admin with destroy/extend actions that call the
   ControlPlane (real teardown + ingress cleanup), plus event history inline.
-- **Reaping**: `manage.py reap` on a systemd timer (`server/deploy/`).
+- **Reaping**: `manage.py reap` runs continuously in the Compose `reaper` service.
 - **Tokens**: `manage.py mint_token <subject> --role --quota --ttl`.
 
 **The CLI is a remote-only client** (`cawl/client.py` + `cawl/cli.py`): it talks

@@ -77,7 +77,7 @@ For whoever runs the server:
 - [Extending](docs/extending.md), custom access providers and backends
 - [Design](docs/design.md), why it's built the way it is
 
-Deploy specifics (certificates, systemd units) are in
+Deploy specifics (Compose configuration and Incus certificates) are in
 [`server/deploy/README.md`](server/deploy/README.md).
 
 ## License
