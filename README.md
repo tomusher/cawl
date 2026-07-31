@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="cawl.png" alt="cawl logo" width="400">
+  <img src="cawl.png" alt="cawl logo" width="250">
 </p>
 
 # cawl
