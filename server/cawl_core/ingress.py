@@ -33,13 +33,14 @@ AUTH_PATH_PREFIX = "/auth/"
 class TraefikIngress:
     def __init__(self, dynamic_dir: str | Path, base_domain: str, *,
                  forward_auth_url: str = "", daemon_url: str = "",
-                 auth_host: str = ""):
+                 auth_host: str = "", cert_resolver: str = "le"):
         self.dir = Path(dynamic_dir)
         self.base_domain = base_domain
         # How *Traefik* reaches the daemon — an internal URL, not the public one.
         self.forward_auth_url = forward_auth_url
         self.daemon_url = daemon_url
         self.auth_host = auth_host
+        self.cert_resolver = cert_resolver
 
     def _path(self, id: str) -> Path:
         return self.dir / f"{id}.yml"
@@ -73,7 +74,7 @@ class TraefikIngress:
                 "service": key,
                 "entryPoints": ["websecure"],
                 "middlewares": ["cawl-auth"],  # fail-closed: every router, no bypass
-                "tls": {},
+                "tls": {"certResolver": self.cert_resolver},
             }
             # The login handoff. Higher priority than the app router so the
             # daemon, not the VM, answers /.cawl/* on this host.
@@ -82,7 +83,7 @@ class TraefikIngress:
                 "service": "cawl-daemon",
                 "entryPoints": ["websecure"],
                 "priority": 1000,
-                "tls": {},
+                "tls": {"certResolver": self.cert_resolver},
             }
             services[key] = {
                 "loadBalancer": {
@@ -124,7 +125,7 @@ class TraefikIngress:
                              f"PathPrefix(`{AUTH_PATH_PREFIX}`)"),
                     "service": "cawl-daemon",
                     "entryPoints": ["websecure"],
-                    "tls": {},
+                    "tls": {"certResolver": self.cert_resolver},
                 }
             }
         path = self.dir / "_cawl.yml"

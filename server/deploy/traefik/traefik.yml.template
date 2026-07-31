@@ -1,5 +1,5 @@
 # Cawl writes one route per exposure into the file-provider directory.
-# Values below are expanded by Traefik from compose's .env file.
+# bootstrap.sh renders the values below from .env before Traefik starts.
 entryPoints:
   web:
     address: ":80"

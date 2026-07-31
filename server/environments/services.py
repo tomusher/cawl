@@ -182,6 +182,7 @@ def build_ingress() -> TraefikIngress:
         forward_auth_url=settings.CAWL_FORWARD_AUTH_URL,
         daemon_url=settings.CAWL_DAEMON_URL,
         auth_host=settings.CAWL_AUTH_HOST,
+        cert_resolver=settings.CAWL_TRAEFIK_CERT_RESOLVER,
     )
 
 

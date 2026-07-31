@@ -57,6 +57,7 @@ services:
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - traefik-dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/control-plane.yml:/etc/traefik/dynamic/control-plane.yml:ro
       - traefik-acme:/acme
     depends_on:
       cawl:

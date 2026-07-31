@@ -9,6 +9,7 @@ dependencies = [
     "gunicorn>=26.0",           # WSGI server (used by the Compose image)
     "pyyaml>=6.0.3",            # cawl_core config/ingress
     "dj-database-url>=3.1",     # DATABASE_URL parsing
+    "whitenoise>=6.11",         # production static asset serving
 ]
 
 [project.optional-dependencies]

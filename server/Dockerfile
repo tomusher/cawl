@@ -19,5 +19,9 @@ COPY --chown=cawl:cawl server/ ./
 RUN mkdir -p /var/lib/cawl/dynamic && chown -R cawl:cawl /var/lib/cawl
 
 USER cawl
+# Bake collected, compressed static assets into the production image for
+# WhiteNoise to serve. This build-only key satisfies the production settings.
+RUN CAWL_SECRET_KEY=build-only-not-used-at-runtime python manage.py collectstatic --noinput
+
 EXPOSE 8000
 CMD ["gunicorn", "cawlserver.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

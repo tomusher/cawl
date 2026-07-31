@@ -124,6 +124,8 @@ if OIDC_ENABLED:
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serve collected assets directly from Gunicorn in production.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -179,6 +181,12 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/oidc/authenticate/" if OIDC_ENABLED else "/admin/login/"
 
@@ -248,6 +256,9 @@ CAWL_DAEMON_URL = os.environ.get("CAWL_DAEMON_URL", "")
 CAWL_FORWARD_AUTH_URL = os.environ.get(
     "CAWL_FORWARD_AUTH_URL",
     (CAWL_DAEMON_URL.rstrip("/") + "/auth/forward") if CAWL_DAEMON_URL else "")
+# Name of the resolver defined in Traefik's static configuration. Dynamic
+# routers set it explicitly: entrypoint defaults are not sufficient for ACME.
+CAWL_TRAEFIK_CERT_RESOLVER = os.environ.get("CAWL_TRAEFIK_CERT_RESOLVER", "le")
 # Host-scoped browser session and one-time magic-link lifetimes (seconds).
 CAWL_WEB_SESSION_TTL = int(os.environ.get("CAWL_WEB_SESSION_TTL", str(12 * 3600)))
 CAWL_MAGIC_TTL = int(os.environ.get("CAWL_MAGIC_TTL", str(4 * 3600)))

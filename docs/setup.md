@@ -38,28 +38,16 @@ cd  /srv/cawl
 curl -L https://github.com/tomusher/cawl/releases/download/v0.1.0/cawl-server-deploy-v0.1.0.tar.gz | tar -xzf --strip-components=1
 ```
 
-Then make a copy of the `.env.example` file and edit it to your liking.
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` before starting, you'll need to set these things:
-
-- `CAWL_API_DOMAIN`: control-plane API hostname (e.g. `cawl.example.com`)
-- `CAWL_PUBLIC_DOMAIN`: public sandbox namespace (e.g. `public.example.com`)
-- `CAWL_INCUS_URL`: the Incus REST API URL (e.g. `https://incus.example.com` or `host.docker.internal:8443`)
-- `POSTGRES_PASSWORD`: a nice random password
-- `CAWL_SECRET_KEY`: a random secret key
-
-Point the apex of `CAWL_API_DOMAIN` at the API network endpoint. Point both the apex and wildcard of `CAWL_PUBLIC_DOMAIN` at the public Traefik endpoint.
-
-The daemon is served at `https://$CAWL_API_DOMAIN` through Traefik. Set `CAWL_API_URL` to that URL for the CLI. 
-
-Before the first start or an update, run the bootstrap script. It starts Postgres, applies migrations, seeds Traefik's static configuration volume, and starts the stack:
+Before the first start or an update, run the bootstrap script. On its first run it prompts for the API/public domains, Incus URL, and ACME DNS settings; it also generates the database and Django secrets. It renders Traefik's static configuration, starts Postgres, applies migrations, starts the stack, and regenerates the existing sandbox routes:
 
 ```bash
 ./bootstrap.sh
+```
+
+The bootstrap script creates `.env` from `.env.example` when needed and prompts for the required values. You can also create and edit it yourself before bootstrapping:
+
+```bash
+cp .env.example .env
 ```
 
 ## Let the cawl server use the Incus API

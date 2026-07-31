@@ -593,7 +593,8 @@ class StopStartApiTestCase(TestCase):
 
         self.assertEqual(
             self.call("post", f"/environments/{sid}/start", tom).status_code, 200)
-        spec = services.get_backends()["container"].specs[sid]
+        backend = Environment.objects.get(pk=sid).backend
+        spec = services.get_backends()[backend].specs[sid]
         self.assertNotIn("v2 rewrite", spec.provision)   # still on v1, as pinned
 
 
