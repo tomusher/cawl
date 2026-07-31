@@ -15,8 +15,9 @@ It's designed to make it easy for developers to:
 - Share that environment with team members for review or collaboration
 - Expose a shareable URL for the environment for acceptance testing or demonstration
 
-It's got two bits:
+It's got three bits:
 
+- Incus, the bit that does all the hard work and actually runs the VMs
 - A server, that manages all these VMs, authentication, lifecycle and generally keeps things working
 - A CLI, that provides the user interface and command-line access to the server
 

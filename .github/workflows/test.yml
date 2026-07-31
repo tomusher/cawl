@@ -26,6 +26,8 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: cawlserver.settings
           CAWL_RUNTIME: fake
+          CAWL_SECRET_KEY: cawl-ci-test-secret-key-not-for-production
+          CAWL_ALLOWED_HOSTS: "*"
 
   cli:
     name: CLI tests
