@@ -214,10 +214,21 @@ class IncusApiRuntime(Runtime):
                 raise
 
     def exec(self, id: str, cmd: list[str]) -> ExecResult:
-        op = self._op("POST", f"/1.0/instances/{id}/exec", {
-            "command": cmd, "wait-for-websocket": False,
-            "record-output": True, "interactive": False,
-        })
+        # A VM reaches the running state before its in-guest Incus agent is
+        # ready to accept exec requests. This is independent of DHCP/egress.
+        deadline = time.monotonic() + min(self.timeout, 60)
+        while True:
+            try:
+                op = self._op("POST", f"/1.0/instances/{id}/exec", {
+                    "command": cmd, "wait-for-websocket": False,
+                    "record-output": True, "interactive": False,
+                })
+                break
+            except IncusApiError as exc:
+                if ("VM agent isn't currently running" not in str(exc)
+                        or time.monotonic() >= deadline):
+                    raise
+                time.sleep(1)
         meta = op.get("metadata", {})
         out = self._fetch_log(meta.get("output", {}).get("1"))
         err = self._fetch_log(meta.get("output", {}).get("2"))
