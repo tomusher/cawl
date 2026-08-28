@@ -3,7 +3,7 @@
 # already operated separately.
 cawl_provision_incus: true
 cawl_provision_control_plane: true
-cawl_provision_base_image: false
+cawl_provision_base_image: true
 cawl_provision_verify: true
 
 # Incus: managed installs and initialises Incus with its safe defaults. Supply
@@ -19,6 +19,9 @@ cawl_incus_preseed: ""
 
 # Deployment files are bundled with cawl-server and copied to this directory.
 cawl_deploy_dir: /srv/cawl
+# Leave unset to use the image tag matching the installed cawl-server CLI.
+# Set this only to pin or test another published control-plane image.
+#cawl_server_image_tag: vX.Y.Z
 
 # Values written to /srv/cawl/.env. Keep this file out of source control; use
 # an Ansible Vault file for real credentials.
@@ -26,13 +29,19 @@ cawl_env:
   CAWL_API_DOMAIN: cawl.example.com
   CAWL_PUBLIC_DOMAIN: public.example.com
   CAWL_INCUS_URL: https://host.docker.internal:8443
+  CAWL_INCUS_CLIENT_CERT: /run/secrets/incus/client.crt
+  CAWL_INCUS_CLIENT_KEY: /run/secrets/incus/client.key
+  CAWL_INCUS_SERVER_CERT: /run/secrets/incus/server.crt
   TRAEFIK_ACME_EMAIL: ops@example.com
   TRAEFIK_DNS_PROVIDER: cloudflare
   CF_DNS_API_TOKEN: replace-with-a-dns-api-token
 
-# Set true only after reviewing the resulting trust relationship. The client
-# key is generated on the control-plane machine and installed in its deploy
-# directory; server.crt is read from the Incus host.
-cawl_configure_incus_trust: false
+# On a combined local host, provision a dedicated daemon certificate, trust it
+# in Incus, and pin the Incus server certificate automatically. For separate
+# hosts this remains a deliberate manual credential hand-off.
+cawl_configure_incus_trust: true
 cawl_incus_trust_name: cawl-server
+# UID/GID used by the cawl container image to read mounted secrets.
+cawl_container_uid: 10001
+cawl_container_gid: 10001
 cawl_base_image_vm: true

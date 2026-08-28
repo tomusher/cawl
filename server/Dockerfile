@@ -5,7 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/server/.venv/bin:$PATH
 
-RUN groupadd --system cawl && useradd --system --gid cawl --home /app cawl
+# Keep this stable so host-mounted deployment secrets can be owned by the
+# unprivileged service account without relying on a distro-assigned system UID.
+RUN groupadd --gid 10001 --system cawl \
+    && useradd --uid 10001 --system --gid cawl --home /app cawl
 
 WORKDIR /app/server
 COPY server/pyproject.toml server/uv.lock ./
@@ -17,7 +20,7 @@ COPY --chown=cawl:cawl server/ ./
 # Docker initializes a new named volume from this directory, preserving its
 # ownership so the unprivileged daemon can write Traefik dynamic routes.
 RUN mkdir -p /var/lib/cawl/dynamic \
-    && chown -R cawl:cawl /var/lib/cawl /app/server
+    && chown -R cawl:cawl /var/lib/cawl /app
 
 USER cawl
 # Bake collected, compressed static assets into the production image for

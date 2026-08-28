@@ -10,7 +10,6 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
-import sys
 
 
 def installed_version() -> str:
@@ -96,6 +95,24 @@ def initialise(args: argparse.Namespace) -> int:
     return 0
 
 
+def assets(args: argparse.Namespace) -> int:
+    """Export bundled deployment files for an intentionally manual setup."""
+    source = deployment(args.cache_dir)
+    target = Path(args.dir).expanduser().resolve()
+    if target.exists() and any(target.iterdir()):
+        raise RuntimeError(f"refusing to overwrite non-empty directory {target}")
+    target.mkdir(parents=True, exist_ok=True)
+    for item in source.iterdir():
+        if item.name == ".cawl-bundle":
+            continue
+        destination = target / item.name
+        if item.is_dir():
+            shutil.copytree(item, destination, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".venv"))
+        else:
+            shutil.copy2(item, destination)
+    return 0
+
+
 def provision(args: argparse.Namespace) -> int:
     deploy = deployment(args.cache_dir)
     config = Path(args.config).expanduser().resolve()
@@ -131,6 +148,9 @@ def parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--dir", default=".", help="Directory for editable example files")
     init_parser.add_argument("--inventory", action="store_true", help="Also write an inventory example for remote hosts")
     init_parser.set_defaults(func=initialise)
+    assets_parser = commands.add_parser("assets", parents=[common])
+    assets_parser.add_argument("--dir", required=True, help="Empty destination for deployment files")
+    assets_parser.set_defaults(func=assets)
     provision_parser = commands.add_parser("provision", parents=[common])
     provision_parser.add_argument("--inventory", help="Inventory for remote or split-host deployment")
     provision_parser.add_argument("--config", required=True, help="Ansible variables YAML file")

@@ -16,19 +16,26 @@ initialises Incus with `incus admin init --auto`. Set
 or lives on a separate host. Provide `cawl_incus_preseed` when you need a
 specific storage or network layout.
 
-The `cawl-server provision` workflow builds the base image when its
-`base-image` role is enabled. To manage it separately, use the
+The `cawl-server provision` workflow builds the base image when base-image
+provisioning is enabled. To manage it separately, use the
 version-matched script materialised in `/srv/cawl/build-base-image.sh`.
 
 See [Incus VMs and agent egress](incus.md) for Incus API certificates, VM
 networking, and egress controls.
 
-## Deploy the control plane
+## Choose a setup flow
 
-Install the operator tool with `uv` (no cawl checkout or system Ansible is
-needed). It bundles the version-matched Compose files, scripts, and Ansible
-roles. First write editable configuration examples, then review them and run
-the preflight:
+| Flow | Use it when | What cawl-server changes |
+| --- | --- | --- |
+| [Fully automated](#fully-automated-single-host) | One new host will run Incus and the control plane. | Installs Incus and Docker, initialises Incus, creates API credentials, builds images, and starts Compose. |
+| [Partially automated](#partially-automated-existing-or-separate-incus) | Incus already exists or lives on another host. | Configures only the selected cawl components; existing Incus and credential hand-off stay operator-owned. |
+| [Fully manual](#fully-manual) | You need complete control. | Nothing: use the exported version-matched assets and run each operation yourself. |
+
+## Fully automated single host
+
+Install the operator tool with `uv`. It bundles
+the version-matched Compose files and provisioning tools. First write editable
+configuration examples, then review them and run the preflight:
 
 ```bash
 uvx cawl-server init --dir ~/cawl-config
@@ -39,22 +46,89 @@ uvx cawl-server provision --config ~/cawl-config/cawl-provision.yml
 ```
 
 The configuration contains DNS credentials: keep it out of source control and
-use Ansible Vault in production. The control-plane role writes `/srv/cawl/.env`,
+store it with your normal secret-management process. On the default combined host, provisioning
+also creates and trusts a dedicated Incus client certificate and pins the Incus
+server certificate for the daemon. Provisioning writes `/srv/cawl/.env`,
 generates its database and Django secrets, renders Traefik's configuration,
 and starts the Compose stack. Existing Incus hosts and separately managed
-control-plane hosts are supported by the inventory and configuration options.
+control-plane hosts are supported by the inventory and configuration options;
+the Incus credential hand-off remains manual for separate hosts.
 
-To update a running control plane, rerun the same declarative control-plane
-role with the configuration used for its deployment:
+To update a running control plane, rerun its declarative configuration:
 
 ```bash
 uvx cawl-server update --config ~/cawl-config/cawl-provision.yml
 ```
 
-## Let the cawl server use the Incus API
+## Partially automated: existing or separate Incus
 
-The server uses Incus's HTTPS API with its own client certificate. On the
-Incus host, create the certificate and trust it:
+Create an inventory when the Incus and control-plane hosts differ, then set
+these values in `cawl-provision.yml`:
+
+```bash
+uvx cawl-server init --dir ~/cawl-config --inventory
+$EDITOR ~/cawl-config/inventory.yml ~/cawl-config/cawl-provision.yml
+```
+
+```yaml
+cawl_provision_incus: false
+# Build it manually on the Incus host, or enable only after the script is
+# available there.
+cawl_provision_base_image: false
+cawl_configure_incus_trust: false
+
+cawl_env:
+  CAWL_INCUS_URL: https://incus.internal.example:8443
+  CAWL_INCUS_CLIENT_CERT: /run/secrets/incus/client.crt
+  CAWL_INCUS_CLIENT_KEY: /run/secrets/incus/client.key
+  CAWL_INCUS_SERVER_CERT: /run/secrets/incus/server.crt
+```
+
+Run `cawl-server provision` with both `--inventory` and `--config`. It leaves
+Incus untouched. Create the daemon credentials on the Incus host and transfer
+them securely to the control-plane host:
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \
+  -keyout client.key -out client.crt -days 3650 -subj "/CN=cawl-server"
+sudo incus config trust add-certificate client.crt --name cawl-server
+scp client.crt client.key control-plane:/srv/cawl/secrets/incus/
+scp /var/lib/incus/server.crt control-plane:/srv/cawl/secrets/incus/server.crt
+```
+
+Keep `client.key` mode `0600`. The server uses Incus's HTTPS API with this
+dedicated client certificate and pinned server certificate.
+
+## Fully manual
+
+Export the assets matching the installed operator CLI into an empty directory:
+
+```bash
+uvx cawl-server assets --dir /srv/cawl
+cd /srv/cawl
+cp .env.example .env
+$EDITOR .env
+```
+
+Install and initialise Incus and Docker Compose yourself, create the Incus
+credentials above, and place them in `secrets/incus/`. Render
+`traefik/traefik.yml` from `traefik/traefik.yml.template` by replacing the four
+`{{ cawl_env.* }}` values with your `.env` values. Then perform the same
+control-plane operations explicitly:
+
+```bash
+docker compose up -d postgres
+docker compose exec -T postgres pg_isready -U cawl -d cawl
+docker compose run --rm cawl python manage.py migrate --noinput
+docker compose up -d
+docker compose exec -T cawl python manage.py sync_ingress
+```
+
+Use `build-base-image.sh --vm` on the Incus host to create the base image.
+The exported configuration and commands above are the supported manual
+reference for required directories, ownership, and service steps.
+
+## Incus API credentials
 
 ```bash
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes \

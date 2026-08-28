@@ -68,6 +68,66 @@
     - cawl_incus_mode == 'managed'
     - cawl_incus_preseed | length == 0
 
+- name: Create the local control-plane Incus credential directory
+  ansible.builtin.file:
+    path: "{{ cawl_deploy_dir }}/secrets/incus"
+    state: directory
+    owner: "{{ cawl_container_uid | default(10001) }}"
+    group: "{{ cawl_container_gid | default(10001) }}"
+    mode: "0700"
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['control_plane']
+
+- name: Generate the local control-plane Incus client certificate
+  ansible.builtin.command: >-
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes
+    -keyout {{ cawl_deploy_dir }}/secrets/incus/client.key
+    -out {{ cawl_deploy_dir }}/secrets/incus/client.crt -days 3650
+    -subj /CN={{ cawl_incus_trust_name | default('cawl-server') }}
+  args:
+    creates: "{{ cawl_deploy_dir }}/secrets/incus/client.key"
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['control_plane']
+
+- name: Restrict the local Incus client private key
+  ansible.builtin.file:
+    path: "{{ cawl_deploy_dir }}/secrets/incus/client.key"
+    owner: "{{ cawl_container_uid | default(10001) }}"
+    group: "{{ cawl_container_gid | default(10001) }}"
+    mode: "0600"
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['control_plane']
+
+- name: Trust the local control-plane client certificate in Incus
+  ansible.builtin.command: >-
+    incus config trust add-certificate
+    {{ cawl_deploy_dir }}/secrets/incus/client.crt
+    --name {{ cawl_incus_trust_name | default('cawl-server') }}
+  register: cawl_incus_trust
+  changed_when: cawl_incus_trust.rc == 0
+  failed_when: >-
+    cawl_incus_trust.rc != 0 and
+    'already exists' not in cawl_incus_trust.stderr | lower and
+    'already in trust store' not in cawl_incus_trust.stderr | lower
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['control_plane']
+
+- name: Pin the local Incus server certificate for the control plane
+  ansible.builtin.copy:
+    src: /var/lib/incus/server.crt
+    dest: "{{ cawl_deploy_dir }}/secrets/incus/server.crt"
+    remote_src: true
+    owner: "{{ cawl_container_uid | default(10001) }}"
+    group: "{{ cawl_container_gid | default(10001) }}"
+    mode: "0644"
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['control_plane']
+
 - name: Check that the Incus API is available
   ansible.builtin.command: incus query /1.0
   changed_when: false

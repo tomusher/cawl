@@ -3,14 +3,15 @@
 # Tailscale + a `dev` user, published as an Incus image that per-site golden
 # images (and blank dev boxes) are cloned from.
 #
-#   REMOTE=cawl: ./build-base-image.sh          # system container (needs nesting)
-#   REMOTE=cawl: ./build-base-image.sh --vm     # hardware-isolated VM (needs /dev/kvm)
+#   ./build-base-image.sh                       # local system container (needs nesting)
+#   ./build-base-image.sh --vm                   # local hardware-isolated VM (needs /dev/kvm)
+#   REMOTE=cawl: ./build-base-image.sh --vm     # publish through a named remote
 #
 # Tools are baked directly into the image (via exec, NOT cloud-init) so clones
 # don't reinstall anything and services (docker, tailscaled) start cleanly.
 set -euo pipefail
 
-REMOTE="${REMOTE:-cawl:}"
+REMOTE="${REMOTE:-}"
 ALIAS="${ALIAS:-cawl/base}"
 BUILDER="${REMOTE}cawl-base-builder"
 
@@ -20,9 +21,24 @@ else
   ISO=(-c security.nesting=true)            # system container + Docker-in-nesting
 fi
 
+wait_for_agent() {
+  # A VM is reported as running before the in-guest Incus agent accepts exec
+  # requests. Wait for it rather than racing the first provisioning command.
+  for _attempt in $(seq 1 60); do
+    if incus exec "$BUILDER" -- true >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Incus VM agent did not become ready for $BUILDER" >&2
+  incus info "$BUILDER" >&2 || true
+  return 1
+}
+
 echo ">> launching builder ($([[ ${1:-} == --vm ]] && echo VM || echo container))"
 incus delete "$BUILDER" --force 2>/dev/null || true
 incus launch images:ubuntu/24.04/cloud "$BUILDER" "${ISO[@]}"
+wait_for_agent
 incus exec "$BUILDER" -- cloud-init status --wait >/dev/null 2>&1 || true
 
 echo ">> installing docker + compose + git + tailscale + sshd + a dev user"
@@ -55,6 +71,10 @@ incus exec "$BUILDER" -- bash -lc ': > /etc/machine-id; rm -f /var/lib/dbus/mach
 
 echo ">> publishing ${REMOTE}${ALIAS}"
 incus stop "$BUILDER"
-incus publish "$BUILDER" "$REMOTE" --alias "$ALIAS" --reuse   # NOTE: target remote is required
+if [[ -n "$REMOTE" ]]; then
+  incus publish "$BUILDER" "$REMOTE" --alias "$ALIAS" --reuse
+else
+  incus publish "$BUILDER" --alias "$ALIAS" --reuse
+fi
 incus delete "$BUILDER" --force
 echo ">> done: ${REMOTE}${ALIAS}"

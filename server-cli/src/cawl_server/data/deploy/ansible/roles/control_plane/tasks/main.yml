@@ -35,6 +35,13 @@
     src: "{{ role_path }}/../../../traefik/"
     dest: "{{ cawl_deploy_dir }}/traefik/"
 
+- name: Pin the server image tag selected by the operator
+  ansible.builtin.replace:
+    path: "{{ cawl_deploy_dir }}/compose.yaml"
+    regexp: 'ghcr.io/tomusher/cawl-server:[^"\s]+'
+    replace: "ghcr.io/tomusher/cawl-server:{{ cawl_server_image_tag }}"
+  when: cawl_server_image_tag is defined
+
 - name: Check for an existing deployment environment file
   ansible.builtin.stat:
     path: "{{ cawl_deploy_dir }}/.env"
@@ -65,6 +72,21 @@
     mode: "0600"
   loop: "{{ cawl_env | dict2items }}"
   no_log: true
+
+- name: Configure local Incus certificate paths
+  ansible.builtin.lineinfile:
+    path: "{{ cawl_deploy_dir }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    mode: "0600"
+  loop:
+    - { key: CAWL_RUNTIME, value: incus_api }
+    - { key: CAWL_INCUS_CLIENT_CERT, value: /run/secrets/incus/client.crt }
+    - { key: CAWL_INCUS_CLIENT_KEY, value: /run/secrets/incus/client.key }
+    - { key: CAWL_INCUS_SERVER_CERT, value: /run/secrets/incus/server.crt }
+  when:
+    - cawl_configure_incus_trust | default(true)
+    - inventory_hostname in groups['incus']
 
 - name: Check whether deployment secrets already exist
   ansible.builtin.shell: >-
