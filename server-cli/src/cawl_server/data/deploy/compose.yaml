@@ -29,6 +29,7 @@ services:
       - ./secrets/incus:/run/secrets/incus:ro
       # The SSH CA is optional, but required for `cawl ssh`.
       - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
+      - ./secrets/ssh_ca.pub:/run/secrets/ssh_ca.pub:ro
     restart: unless-stopped
 
   reaper:

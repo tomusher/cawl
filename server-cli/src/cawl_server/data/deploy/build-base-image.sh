@@ -12,12 +12,15 @@
 set -euo pipefail
 
 REMOTE="${REMOTE:-}"
-ALIAS="${ALIAS:-cawl/base}"
 BUILDER="${REMOTE}cawl-base-builder"
 
 if [[ "${1:-}" == "--vm" ]]; then
+  # The VM runtime appends -vm to template image names (for example,
+  # cawl/base becomes cawl/base-vm), so publish the matching alias.
+  ALIAS="${ALIAS:-cawl/base-vm}"
   ISO=(--vm -c security.secureboot=false)   # hardware isolation (own kernel)
 else
+  ALIAS="${ALIAS:-cawl/base}"
   ISO=(-c security.nesting=true)            # system container + Docker-in-nesting
 fi
 

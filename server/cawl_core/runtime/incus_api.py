@@ -14,6 +14,7 @@ import http.client
 import json
 import shlex
 import ssl
+import time
 from urllib.parse import urlparse
 
 from cawl_core.runtime import sshd
@@ -145,11 +146,7 @@ class IncusApiRuntime(Runtime):
         self._op("POST", "/1.0/instances", body)
         self._op("PUT", f"/1.0/instances/{spec.id}/state",
                  {"action": "start", "timeout": self.timeout})
-        info = self.info(spec.id)
-        if spec.egress_ready:
-            if not info.ip:
-                raise IncusApiError("started instance has no workload IP")
-            spec.egress_ready(info.ip)
+        info = self._wait_for_ip(spec)
         self._provision(spec)
         return info
 
@@ -199,11 +196,7 @@ class IncusApiRuntime(Runtime):
     def start(self, spec: InstanceSpec) -> InstanceInfo:
         self._op("PUT", f"/1.0/instances/{spec.id}/state",
                  {"action": "start", "timeout": self.timeout})
-        info = self.info(spec.id)
-        if spec.egress_ready:
-            if not info.ip:
-                raise IncusApiError("started instance has no workload IP")
-            spec.egress_ready(info.ip)
+        info = self._wait_for_ip(spec)
         self._boot(spec)
         return info
 
@@ -251,6 +244,25 @@ class IncusApiRuntime(Runtime):
             return InstanceInfo(ip=None, status="unknown")
         return InstanceInfo(ip=_first_ipv4({"state": state}),
                             status=state.get("status", "unknown"))
+
+    def _wait_for_ip(self, spec: InstanceSpec) -> InstanceInfo:
+        info = self.info(spec.id)
+        if not spec.egress_ready:
+            return info
+        # DHCP/guest-agent state often lags the successful start operation,
+        # especially for VMs. Do not reject a healthy VM because its address
+        # has not appeared in the first state response.
+        deadline = time.monotonic() + min(self.timeout, 60)
+        while not info.ip and time.monotonic() < deadline:
+            time.sleep(1)
+            info = self.info(spec.id)
+        if not info.ip:
+            raise IncusApiError(
+                "started instance has no workload IP after 60 seconds; "
+                "check its Incus NIC and DHCP network"
+            )
+        spec.egress_ready(info.ip)
+        return info
 
     def build_image(self, spec: InstanceSpec) -> str:
         builder = f"{spec.image.replace('/', '-')}-builder"

@@ -1,6 +1,9 @@
 ---
-- name: Check for the cawl base image
-  ansible.builtin.command: incus image list cawl/base --format json
+- name: Check for the cawl base image matching the selected runtime
+  ansible.builtin.command: >-
+    incus image list
+    {{ 'cawl/base-vm' if (cawl_base_image_vm | bool) else 'cawl/base' }}
+    --format json
   register: cawl_base_image
   changed_when: false
 

@@ -205,8 +205,13 @@ class ControlPlane:
             network_boot=self.access.boot_script(inst.id),
             egress_network=self.egress.attachment(inst.id).network,
             egress_boot=self.egress.boot_script(inst.id),
-            egress_ready=lambda ip: self.egress.register(
-                inst.id, ip, self.egress.policy.allowed_hosts),
+            # NoEgress has no source-address policy to register. Requiring an
+            # address in that mode turns an otherwise usable local VM into a
+            # startup failure while DHCP/guest state is still settling.
+            egress_ready=(
+                lambda ip: self.egress.register(
+                    inst.id, ip, self.egress.policy.allowed_hosts)
+            ) if self.egress.policy.name != "none" else None,
         )
 
     def up(

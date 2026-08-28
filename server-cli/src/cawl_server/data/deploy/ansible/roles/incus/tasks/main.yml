@@ -68,6 +68,13 @@
     - cawl_incus_mode == 'managed'
     - cawl_incus_preseed | length == 0
 
+- name: Expose the local Incus HTTPS API to the control-plane containers
+  ansible.builtin.command: incus config set core.https_address :8443
+  changed_when: false
+  when:
+    - inventory_hostname in groups['control_plane']
+    - cawl_incus_mode == 'managed' or cawl_configure_incus_trust | default(true)
+
 - name: Create the local control-plane Incus credential directory
   ansible.builtin.file:
     path: "{{ cawl_deploy_dir }}/secrets/incus"
