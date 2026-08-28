@@ -1,6 +1,6 @@
 [project]
 name = "cawl-provision"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pinned operator dependencies for the cawl provisioning playbook"
 requires-python = ">=3.11"
 dependencies = [

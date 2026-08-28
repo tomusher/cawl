@@ -14,9 +14,8 @@ uvx cawl-server init
 # Run this on the single host that will run Incus and the control plane.
 uvx cawl-server provision --config ./cawl-provision.yml --check
 
-# Run this on the control-plane host to replace deployment files, retaining
-# .env and secrets, and rerun bootstrap.sh.
-uvx cawl-server update --dir /srv/cawl
+# Reconcile an existing deployment through the control-plane role.
+uvx cawl-server update --config ./cawl-provision.yml
 ```
 
 `--config` is an Ansible variables YAML file based on the bundled

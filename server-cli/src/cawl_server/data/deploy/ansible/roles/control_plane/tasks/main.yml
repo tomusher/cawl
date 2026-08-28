@@ -24,9 +24,8 @@
   ansible.builtin.copy:
     src: "{{ role_path }}/../../../{{ item }}"
     dest: "{{ cawl_deploy_dir }}/{{ item }}"
-    mode: "{{ '0755' if item in ['bootstrap.sh', 'build-base-image.sh'] else omit }}"
+    mode: "{{ '0755' if item == 'build-base-image.sh' else omit }}"
   loop:
-    - bootstrap.sh
     - build-base-image.sh
     - compose.yaml
     - .env.example
@@ -97,10 +96,38 @@
     line: CAWL_BOOTSTRAPPED=1
     mode: "0600"
 
-- name: Bootstrap the Compose deployment
-  ansible.builtin.command: ./bootstrap.sh
+- name: Render Traefik static configuration
+  ansible.builtin.template:
+    src: "{{ role_path }}/../../../traefik/traefik.yml.template"
+    dest: "{{ cawl_deploy_dir }}/traefik/traefik.yml"
+    mode: "0644"
+
+- name: Start Postgres
+  ansible.builtin.command: docker compose up -d postgres
   args:
     chdir: "{{ cawl_deploy_dir }}"
-  environment:
-    # bootstrap is deliberately noninteractive once the complete .env exists.
-    TERM: dumb
+
+- name: Wait for Postgres
+  ansible.builtin.command: docker compose exec -T postgres pg_isready -U cawl -d cawl
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+  register: cawl_postgres_ready
+  changed_when: false
+  retries: 12
+  delay: 5
+  until: cawl_postgres_ready.rc == 0
+
+- name: Apply database migrations
+  ansible.builtin.command: docker compose run --rm cawl python manage.py migrate --noinput
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+
+- name: Start the Compose deployment
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+
+- name: Regenerate sandbox ingress routes
+  ansible.builtin.command: docker compose exec -T cawl python manage.py sync_ingress
+  args:
+    chdir: "{{ cawl_deploy_dir }}"

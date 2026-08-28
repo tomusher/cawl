@@ -5,4 +5,4 @@ API, and `cawl.cli` is the command surface. Configure with CAWL_API_URL +
 CAWL_TOKEN. The domain library lives separately in the server (cawl_core).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

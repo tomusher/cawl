@@ -47,6 +47,17 @@ services:
       - ./secrets/ssh_ca:/run/secrets/ssh_ca:ro
     restart: unless-stopped
 
+  # The dynamic-routes volume is mounted read-only by Traefik. Populate the
+  # static control-plane route in that volume before Traefik starts rather than
+  # attempting a nested bind mount inside the read-only volume.
+  traefik-config:
+    image: alpine:3.21
+    command: ["/bin/sh", "-c", "cp /source/control-plane.yml /dynamic/control-plane.yml"]
+    volumes:
+      - traefik-dynamic:/dynamic
+      - ./traefik/control-plane.yml:/source/control-plane.yml:ro
+    restart: "no"
+
   traefik:
     image: traefik:v3.7
     command: ["--configFile=/etc/traefik/traefik.yml"]
@@ -57,11 +68,12 @@ services:
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - traefik-dynamic:/etc/traefik/dynamic:ro
-      - ./traefik/control-plane.yml:/etc/traefik/dynamic/control-plane.yml:ro
       - traefik-acme:/acme
     depends_on:
       cawl:
         condition: service_started
+      traefik-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

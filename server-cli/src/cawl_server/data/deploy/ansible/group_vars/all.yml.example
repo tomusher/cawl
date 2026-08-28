@@ -1,15 +1,20 @@
 ---
 # Roles can also be selected with --tags. Set false for infrastructure that is
 # already operated separately.
-cawl_provision_incus: false
+cawl_provision_incus: true
 cawl_provision_control_plane: true
 cawl_provision_base_image: false
 cawl_provision_verify: true
 
-# Incus: managed installs the package and applies this *operator-reviewed*
-# preseed. existing only verifies the API and leaves all Incus configuration
-# alone. Remote Incus belongs in the incus inventory group.
-cawl_incus_mode: existing # managed | existing
+# Incus: managed installs and initialises Incus with its safe defaults. Supply
+# a reviewed preseed to choose storage/networking yourself. existing only
+# verifies the API and leaves all Incus configuration alone. Remote Incus
+# belongs in the incus inventory group.
+cawl_incus_mode: managed # managed | existing
+# managed installs from the official Incus stable repository, rather than a
+# potentially old distribution package.
+cawl_incus_channel: stable
+cawl_incus_min_version: "6.0"
 cawl_incus_preseed: ""
 
 # Deployment files are bundled with cawl-server and copied to this directory.

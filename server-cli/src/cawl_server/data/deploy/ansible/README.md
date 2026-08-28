@@ -19,10 +19,11 @@ $EDITOR ~/cawl-config/cawl-provision.yml
 cawl-server provision --config ~/cawl-config/cawl-provision.yml --check
 ```
 
-Use Ansible Vault for `cawl_env` in a real deployment. The playbook never
-creates an Incus storage pool or network from guesses: set
-`cawl_incus_mode: managed` and provide a reviewed `cawl_incus_preseed`, or use
-`existing` to leave Incus untouched.
+Use Ansible Vault for `cawl_env` in a real deployment. By default the
+playbook installs Incus from the official stable repository, verifies it is at
+least the configured supported version, and runs `incus admin init --auto`. Supply a reviewed
+`cawl_incus_preseed` when you need a particular storage or network layout, or
+set `cawl_incus_mode: existing` to leave Incus untouched.
 
 ## Run only one component
 
@@ -50,8 +51,8 @@ is intentionally manual for now: it creates an administrator-level trust
 relationship and needs a deliberate hand-off between hosts.
 
 Likewise, egress ACLs, firewall rules, DNS delegation, and clustering remain
-operator-owned. The manual deployment path (`bootstrap.sh` plus the setup
-and Incus guides) remains fully supported.
+operator-owned. The setup and Incus guides cover these manual,
+security-sensitive steps.
 
 ## Idempotency and updates
 

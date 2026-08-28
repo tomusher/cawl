@@ -16,7 +16,8 @@ RUN pip install --no-cache-dir uv \
 COPY --chown=cawl:cawl server/ ./
 # Docker initializes a new named volume from this directory, preserving its
 # ownership so the unprivileged daemon can write Traefik dynamic routes.
-RUN mkdir -p /var/lib/cawl/dynamic && chown -R cawl:cawl /var/lib/cawl
+RUN mkdir -p /var/lib/cawl/dynamic \
+    && chown -R cawl:cawl /var/lib/cawl /app/server
 
 USER cawl
 # Bake collected, compressed static assets into the production image for

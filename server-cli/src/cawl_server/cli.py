@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.metadata
 from importlib import resources
 import os
@@ -16,7 +17,7 @@ def installed_version() -> str:
     try:
         return importlib.metadata.version("cawl-server")
     except importlib.metadata.PackageNotFoundError:  # useful from a checkout
-        return "0.1.0"
+        return "0.1.1"
 
 
 def copy_resource_tree(source: resources.abc.Traversable, destination: Path) -> None:
@@ -30,25 +31,39 @@ def copy_resource_tree(source: resources.abc.Traversable, destination: Path) -> 
             target.write_bytes(child.read_bytes())
 
 
+def resource_digest(source: resources.abc.Traversable) -> str:
+    """Identify the bundled assets, including development builds with one version."""
+    digest = hashlib.sha256()
+    for child in sorted(source.iterdir(), key=lambda entry: entry.name):
+        digest.update(child.name.encode())
+        if child.is_dir():
+            digest.update(resource_digest(child).encode())
+        else:
+            digest.update(child.read_bytes())
+    return digest.hexdigest()
+
+
 def deployment(cache_dir: str) -> Path:
     """Materialise this CLI's version-matched deployment assets once."""
+    source = resources.files("cawl_server").joinpath("data", "deploy")
+    digest = resource_digest(source)
     destination = Path(cache_dir).expanduser() / installed_version()
     marker = destination / ".cawl-bundle"
-    if marker.exists():
+    if marker.is_file() and marker.read_text() == digest:
         return destination
     staging = destination.with_name(destination.name + ".tmp")
     shutil.rmtree(staging, ignore_errors=True)
-    copy_resource_tree(resources.files("cawl_server").joinpath("data", "deploy"), staging)
+    copy_resource_tree(source, staging)
     # Deployment artifacts are normally extracted from a tarball. Restore the
     # executable bits when they are materialised from Python package data.
-    for script in (staging / "provision", staging / "bootstrap.sh", staging / "build-base-image.sh"):
+    for script in (staging / "provision", staging / "build-base-image.sh"):
         script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
     compose = staging / "compose.yaml"
-    compose.write_text(compose.read_text().replace("ghcr.io/tomusher/cawl-server:main", f"ghcr.io/tomusher/cawl-server:{installed_version()}"))
+    compose.write_text(compose.read_text().replace("ghcr.io/tomusher/cawl-server:main", f"ghcr.io/tomusher/cawl-server:v{installed_version()}"))
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(destination, ignore_errors=True)
     staging.rename(destination)
-    marker.touch()
+    marker.write_text(digest)
     return destination
 
 
@@ -101,19 +116,9 @@ def provision(args: argparse.Namespace) -> int:
 
 
 def update(args: argparse.Namespace) -> int:
-    source = deployment(args.cache_dir)
-    target = Path(args.dir).expanduser().resolve()
-    if not (target / ".env").is_file():
-        raise RuntimeError(f"{target} is not an existing cawl deployment (.env is missing)")
-    for item in source.iterdir():
-        if item.name in {".env", "secrets", ".cawl-bundle", "ansible", "provision", "README.md"}:
-            continue
-        destination = target / item.name
-        if item.is_dir():
-            shutil.copytree(item, destination, dirs_exist_ok=True)
-        else:
-            shutil.copy2(item, destination)
-    return subprocess.run(["sh", "bootstrap.sh"], cwd=target).returncode
+    """Reconcile an existing control plane through the same Ansible role."""
+    args.ansible_args = ["--tags", "control-plane", *args.ansible_args]
+    return provision(args)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -132,7 +137,9 @@ def parser() -> argparse.ArgumentParser:
     provision_parser.add_argument("ansible_args", nargs=argparse.REMAINDER)
     provision_parser.set_defaults(func=provision)
     update_parser = commands.add_parser("update", parents=[common])
-    update_parser.add_argument("--dir", default="/srv/cawl")
+    update_parser.add_argument("--config", required=True, help="The original Ansible variables YAML file")
+    update_parser.add_argument("--inventory", help="Inventory for remote or split-host deployment")
+    update_parser.add_argument("ansible_args", nargs=argparse.REMAINDER)
     update_parser.set_defaults(func=update)
     return result
 
@@ -140,7 +147,7 @@ def parser() -> argparse.ArgumentParser:
 def main() -> None:
     try:
         args, unknown = parser().parse_known_args()
-        if args.command == "provision":
+        if args.command in {"provision", "update"}:
             args.ansible_args.extend(unknown)
         elif unknown:
             parser().error(f"unrecognized arguments: {' '.join(unknown)}")

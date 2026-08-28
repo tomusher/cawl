@@ -6,17 +6,15 @@ host or on a host reachable from Docker.
 
 ## Prerequisites
 
-You need an Incus host, Docker Compose on the control-plane host, a public IP
-and domain with DNS-provider API credentials for wildcard TLS, and an SSH
-transport for developers (Tailscale, a jump host, or routing to the Incus
-bridge).
+You need a host with KVM support for Incus, a public IP and domain with
+DNS-provider API credentials for wildcard TLS, and an SSH transport for
+developers (Tailscale, a jump host, or routing to the Incus bridge).
 
-Install and initialise Incus using the [Incus installation documentation](https://linuxcontainers.org/incus/docs/main/installing/):
-
-```bash
-apt install incus qemu-system
-incus admin init
-```
+By default, `cawl-server provision` installs Docker Compose and Incus, then
+initialises Incus with `incus admin init --auto`. Set
+`cawl_incus_mode: existing` in its configuration when Incus is already managed
+or lives on a separate host. Provide `cawl_incus_preseed` when you need a
+specific storage or network layout.
 
 The `cawl-server provision` workflow builds the base image when its
 `base-image` role is enabled. To manage it separately, use the
@@ -46,12 +44,11 @@ generates its database and Django secrets, renders Traefik's configuration,
 and starts the Compose stack. Existing Incus hosts and separately managed
 control-plane hosts are supported by the inventory and configuration options.
 
-To update a running control plane, run this on its host. It preserves `.env`
-and `secrets/`, replaces the version-matched deployment files, and reruns the
-bootstrap process:
+To update a running control plane, rerun the same declarative control-plane
+role with the configuration used for its deployment:
 
 ```bash
-uvx cawl-server update --dir /srv/cawl
+uvx cawl-server update --config ~/cawl-config/cawl-provision.yml
 ```
 
 ## Let the cawl server use the Incus API

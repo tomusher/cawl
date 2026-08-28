@@ -6,4 +6,4 @@ environments) is its consumer; the `cawl` CLI is a separate remote client and do
 not import this.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

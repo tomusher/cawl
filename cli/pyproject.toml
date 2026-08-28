@@ -1,6 +1,6 @@
 [project]
 name = "cawl"
-version = "0.1.0"
+version = "0.1.1"
 description = "cawl — remote CLI + client for the sandbox control-plane daemon"
 requires-python = ">=3.11"
 dependencies = [

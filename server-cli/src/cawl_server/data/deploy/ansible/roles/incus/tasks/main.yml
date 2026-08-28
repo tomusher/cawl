@@ -1,33 +1,90 @@
 ---
-- name: Install Incus dependencies when cawl manages Incus
+- name: Require a Debian-family host for managed Incus
+  ansible.builtin.assert:
+    that: ansible_os_family == 'Debian'
+    fail_msg: >-
+      Managed Incus installation currently supports Debian/Ubuntu hosts. Set
+      cawl_incus_mode: existing and install Incus yourself on other systems.
+  when: cawl_incus_mode == 'managed'
+
+- name: Install repository prerequisites for managed Incus
   ansible.builtin.apt:
     name:
-      - incus
+      - ca-certificates
       - qemu-system
       - openssl
     state: present
     update_cache: true
   when: cawl_incus_mode == 'managed'
 
-- name: Require an explicit Incus preseed for a managed installation
-  ansible.builtin.assert:
-    that: cawl_incus_preseed | length > 0
-    fail_msg: >-
-      Refusing to initialise Incus without cawl_incus_preseed. Storage and
-      network layout are operator decisions; use mode: existing to leave an
-      existing server untouched.
+- name: Create the Incus repository keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
   when: cawl_incus_mode == 'managed'
 
-- name: Initialise Incus from the reviewed preseed
+- name: Install the official Incus repository signing key
+  ansible.builtin.get_url:
+    url: https://pkgs.zabbly.com/key.asc
+    dest: /etc/apt/keyrings/zabbly-incus.asc
+    mode: "0644"
+  when: cawl_incus_mode == 'managed'
+
+- name: Configure the official Incus package repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/zabbly-incus.sources
+    mode: "0644"
+    content: |
+      Enabled: yes
+      Types: deb
+      URIs: https://pkgs.zabbly.com/incus/{{ cawl_incus_channel | default('stable') }}
+      Suites: {{ ansible_distribution_release }}
+      Components: main
+      Signed-By: /etc/apt/keyrings/zabbly-incus.asc
+  when: cawl_incus_mode == 'managed'
+
+- name: Install Incus from the official repository
+  ansible.builtin.apt:
+    name: incus
+    state: present
+    update_cache: true
+  when: cawl_incus_mode == 'managed'
+
+- name: Initialise Incus with a reviewed preseed
   ansible.builtin.command: incus admin init --preseed
   args:
     stdin: "{{ cawl_incus_preseed }}"
     creates: /var/lib/incus/database
-  when: cawl_incus_mode == 'managed'
+  when:
+    - cawl_incus_mode == 'managed'
+    - cawl_incus_preseed | length > 0
 
-- name: Check that Incus is available
-  ansible.builtin.command: incus info --format json
+- name: Initialise Incus with its safe defaults
+  ansible.builtin.command: incus admin init --auto
+  args:
+    creates: /var/lib/incus/database
+  when:
+    - cawl_incus_mode == 'managed'
+    - cawl_incus_preseed | length == 0
+
+- name: Check that the Incus API is available
+  ansible.builtin.command: incus query /1.0
   changed_when: false
+
+- name: Read the Incus server version
+  ansible.builtin.shell: "incus version | awk -F': ' '/^Server version:/ {print $2}'"
+  register: cawl_incus_server_version
+  changed_when: false
+
+- name: Require a supported Incus server version
+  ansible.builtin.assert:
+    that:
+      - cawl_incus_server_version.stdout | length > 0
+      - cawl_incus_server_version.stdout is version(cawl_incus_min_version | default('6.0'), '>=')
+    fail_msg: >-
+      Incus server version {{ cawl_incus_server_version.stdout | default('unknown') }}
+      is unsupported; cawl requires {{ cawl_incus_min_version | default('6.0') }} or newer.
 
 - name: Check hardware virtualisation when building VM images
   ansible.builtin.stat:

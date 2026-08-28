@@ -1,5 +1,5 @@
 # Cawl writes one route per exposure into the file-provider directory.
-# bootstrap.sh renders the values below from .env before Traefik starts.
+# The provisioning role renders these values from cawl-provision.yml.
 entryPoints:
   web:
     address: ":80"
@@ -14,10 +14,10 @@ entryPoints:
       tls:
         certResolver: le
         domains:
-          - main: "${CAWL_API_DOMAIN}"
-          - main: "${CAWL_PUBLIC_DOMAIN}"
+          - main: "{{ cawl_env.CAWL_API_DOMAIN }}"
+          - main: "{{ cawl_env.CAWL_PUBLIC_DOMAIN }}"
             sans:
-              - "*.${CAWL_PUBLIC_DOMAIN}"
+              - "*.{{ cawl_env.CAWL_PUBLIC_DOMAIN }}"
 
 providers:
   file:
@@ -27,10 +27,10 @@ providers:
 certificatesResolvers:
   le:
     acme:
-      email: "${TRAEFIK_ACME_EMAIL}"
+      email: "{{ cawl_env.TRAEFIK_ACME_EMAIL }}"
       storage: /acme/acme.json
       dnsChallenge:
-        provider: "${TRAEFIK_DNS_PROVIDER}"
+        provider: "{{ cawl_env.TRAEFIK_DNS_PROVIDER }}"
 
 log:
   level: INFO
