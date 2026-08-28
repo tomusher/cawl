@@ -214,8 +214,8 @@ class IncusApiRuntime(Runtime):
                 raise
 
     def exec(self, id: str, cmd: list[str]) -> ExecResult:
-        # A VM reaches the running state before its in-guest Incus agent is
-        # ready to accept exec requests. This is independent of DHCP/egress.
+        # A VM start operation can complete before QEMU and its in-guest Incus
+        # agent accept exec requests. This is independent of DHCP/egress.
         deadline = time.monotonic() + min(self.timeout, 60)
         while True:
             try:
@@ -225,8 +225,11 @@ class IncusApiRuntime(Runtime):
                 })
                 break
             except IncusApiError as exc:
-                if ("VM agent isn't currently running" not in str(exc)
-                        or time.monotonic() >= deadline):
+                transient = (
+                    "VM agent isn't currently running" in str(exc)
+                    or "Instance is not running" in str(exc)
+                )
+                if not transient or time.monotonic() >= deadline:
                     raise
                 time.sleep(1)
         meta = op.get("metadata", {})
@@ -258,21 +261,25 @@ class IncusApiRuntime(Runtime):
 
     def _wait_for_ip(self, spec: InstanceSpec) -> InstanceInfo:
         info = self.info(spec.id)
-        if not spec.egress_ready:
-            return info
+        # The address is persisted for bridge SSH even when egress is disabled.
         # DHCP/guest-agent state often lags the successful start operation,
-        # especially for VMs. Do not reject a healthy VM because its address
-        # has not appeared in the first state response.
+        # especially for VMs, so wait before recording the environment state.
         deadline = time.monotonic() + min(self.timeout, 60)
         while not info.ip and time.monotonic() < deadline:
             time.sleep(1)
             info = self.info(spec.id)
         if not info.ip:
-            raise IncusApiError(
-                "started instance has no workload IP after 60 seconds; "
-                "check its Incus NIC and DHCP network"
-            )
-        spec.egress_ready(info.ip)
+            # Proxy egress cannot safely run without a source address. Other
+            # access modes may still become reachable independently (for
+            # example through Tailscale), so do not fail their startup here.
+            if spec.egress_ready:
+                raise IncusApiError(
+                    "started instance has no workload IP after 60 seconds; "
+                    "check its Incus NIC and DHCP network"
+                )
+            return info
+        if spec.egress_ready:
+            spec.egress_ready(info.ip)
         return info
 
     def build_image(self, spec: InstanceSpec) -> str:
