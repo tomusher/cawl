@@ -5,6 +5,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/server/.venv/bin:$PATH
 
+# The daemon signs SSH certificates for environments with ssh-keygen.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # Keep this stable so host-mounted deployment secrets can be owned by the
 # unprivileged service account without relying on a distro-assigned system UID.
 RUN groupadd --gid 10001 --system cawl \

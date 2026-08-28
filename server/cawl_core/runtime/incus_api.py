@@ -205,7 +205,7 @@ class IncusApiRuntime(Runtime):
         # stop request cannot safely distinguish "already stopped" from a real
         # backend failure and introduces a race before deletion.
         try:
-            self._op("DELETE", f"/1.0/instances/{id}?force=true")
+            self._op("DELETE", f"/1.0/instances/{id}?force=1")
         except IncusApiError as exc:
             # Idempotent cleanup treats only Incus' explicit not-found response
             # as success. Timeouts, authorization errors, and server failures
