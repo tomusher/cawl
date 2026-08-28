@@ -1,0 +1,106 @@
+---
+- name: Install control-plane dependencies
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - openssl
+    state: present
+    update_cache: true
+
+- name: Enable Docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Create deployment directory
+  ansible.builtin.file:
+    path: "{{ cawl_deploy_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Copy bundled deployment files
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../{{ item }}"
+    dest: "{{ cawl_deploy_dir }}/{{ item }}"
+    mode: "{{ '0755' if item in ['bootstrap.sh', 'build-base-image.sh'] else omit }}"
+  loop:
+    - bootstrap.sh
+    - build-base-image.sh
+    - compose.yaml
+    - .env.example
+
+- name: Copy bundled Traefik configuration
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../traefik/"
+    dest: "{{ cawl_deploy_dir }}/traefik/"
+
+- name: Check for an existing deployment environment file
+  ansible.builtin.stat:
+    path: "{{ cawl_deploy_dir }}/.env"
+  register: cawl_env_file
+
+- name: Seed the deployment environment file
+  ansible.builtin.copy:
+    src: "{{ cawl_deploy_dir }}/.env.example"
+    dest: "{{ cawl_deploy_dir }}/.env"
+    remote_src: true
+    mode: "0600"
+  when: not cawl_env_file.stat.exists
+
+- name: Create deployment secret directories
+  ansible.builtin.file:
+    path: "{{ cawl_deploy_dir }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - secrets/incus
+    - secrets/ssh_ca
+
+- name: Write operator-supplied deployment settings
+  ansible.builtin.lineinfile:
+    path: "{{ cawl_deploy_dir }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    mode: "0600"
+  loop: "{{ cawl_env | dict2items }}"
+  no_log: true
+
+- name: Check whether deployment secrets already exist
+  ansible.builtin.shell: >-
+    grep -Pq '^POSTGRES_PASSWORD=(?!replace-with-).+' .env &&
+    grep -Pq '^CAWL_SECRET_KEY=(?!replace-with-).+' .env
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+    executable: /bin/bash
+  register: cawl_secrets_exist
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Generate deployment secrets once
+  ansible.builtin.shell: |
+    set -eu
+    sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
+    sed -i "s|^CAWL_SECRET_KEY=.*|CAWL_SECRET_KEY=$(openssl rand -hex 32)|" .env
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+    executable: /bin/bash
+  when: cawl_secrets_exist.rc != 0
+  no_log: true
+
+- name: Mark the noninteractive deployment configuration complete
+  ansible.builtin.lineinfile:
+    path: "{{ cawl_deploy_dir }}/.env"
+    regexp: '^CAWL_BOOTSTRAPPED='
+    line: CAWL_BOOTSTRAPPED=1
+    mode: "0600"
+
+- name: Bootstrap the Compose deployment
+  ansible.builtin.command: ./bootstrap.sh
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+  environment:
+    # bootstrap is deliberately noninteractive once the complete .env exists.
+    TERM: dumb

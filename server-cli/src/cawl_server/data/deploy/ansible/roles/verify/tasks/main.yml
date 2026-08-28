@@ -1,0 +1,19 @@
+---
+- name: Check that Compose services are running
+  ansible.builtin.command: docker compose ps --status running --services
+  args:
+    chdir: "{{ cawl_deploy_dir }}"
+  register: cawl_running_services
+  changed_when: false
+
+- name: Require all control-plane services
+  ansible.builtin.assert:
+    that:
+      - "'postgres' in cawl_running_services.stdout_lines"
+      - "'cawl' in cawl_running_services.stdout_lines"
+      - "'reaper' in cawl_running_services.stdout_lines"
+      - "'traefik' in cawl_running_services.stdout_lines"
+    fail_msg: >-
+      The Compose stack is not healthy. Run `docker compose ps` and
+      `docker compose logs` in {{ cawl_deploy_dir }}.
+

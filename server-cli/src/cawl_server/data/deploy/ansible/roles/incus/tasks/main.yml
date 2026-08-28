@@ -1,0 +1,42 @@
+---
+- name: Install Incus dependencies when cawl manages Incus
+  ansible.builtin.apt:
+    name:
+      - incus
+      - qemu-system
+      - openssl
+    state: present
+    update_cache: true
+  when: cawl_incus_mode == 'managed'
+
+- name: Require an explicit Incus preseed for a managed installation
+  ansible.builtin.assert:
+    that: cawl_incus_preseed | length > 0
+    fail_msg: >-
+      Refusing to initialise Incus without cawl_incus_preseed. Storage and
+      network layout are operator decisions; use mode: existing to leave an
+      existing server untouched.
+  when: cawl_incus_mode == 'managed'
+
+- name: Initialise Incus from the reviewed preseed
+  ansible.builtin.command: incus admin init --preseed
+  args:
+    stdin: "{{ cawl_incus_preseed }}"
+    creates: /var/lib/incus/database
+  when: cawl_incus_mode == 'managed'
+
+- name: Check that Incus is available
+  ansible.builtin.command: incus info --format json
+  changed_when: false
+
+- name: Check hardware virtualisation when building VM images
+  ansible.builtin.stat:
+    path: /dev/kvm
+  register: cawl_kvm
+  when: cawl_base_image_vm | bool
+
+- name: Require KVM for VM images
+  ansible.builtin.assert:
+    that: cawl_kvm.stat.exists
+    fail_msg: /dev/kvm is required to build and run cawl VM images.
+  when: cawl_base_image_vm | bool

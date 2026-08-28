@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+# Run the bundled provisioning playbook without requiring a system Ansible.
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required to run provisioning; install it from https://docs.astral.sh/uv/" >&2
+  exit 127
+fi
+
+inventory=${CAWL_PROVISION_INVENTORY:-"$root/ansible/inventory.yml"}
+config=${CAWL_PROVISION_CONFIG:-}
+if [ ! -f "$inventory" ]; then
+  echo "Create ansible/inventory.yml from its .example file first." >&2
+  exit 2
+fi
+if [ -n "$config" ] && [ ! -f "$config" ]; then
+  echo "CAWL_PROVISION_CONFIG must name an existing Ansible variables file." >&2
+  exit 2
+fi
+
+set -- -i "$inventory" "$root/ansible/site.yml" "$@"
+if [ -n "$config" ]; then
+  set -- -e "@$config" "$@"
+fi
+# cawl-server itself may have been launched by uvx. Its virtual environment is
+# unrelated to the locked Ansible environment embedded with this deployment.
+unset VIRTUAL_ENV
+exec uv run --locked --project "$root/ansible" ansible-playbook "$@"

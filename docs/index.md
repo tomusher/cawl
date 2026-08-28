@@ -29,6 +29,6 @@ cawl is made up of three parts
 
 If you're setting up cawl for the first time, see [Setting It Up](setup.md).
 
-If your team already has a cawl server running, see [Using cawl](using-cawl.md).
+If your team already has a cawl server running, see [Usage](usage.md).
 
 If you're an administrator looking to manage the server, see [Administration](administration.md).

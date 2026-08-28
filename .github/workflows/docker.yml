@@ -43,23 +43,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-release:
-    name: Package deployment bundle
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: docker
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-      - name: Package deployment bundle
-        env:
-          VERSION: ${{ github.ref_name }}
-          OWNER: ${{ github.repository_owner }}
-        run: scripts/package-deploy.sh "$VERSION" "$OWNER"
-      - name: Publish deployment bundle
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            cawl-server-deploy-${{ github.ref_name }}.tar.gz
-            cawl-server-deploy-${{ github.ref_name }}.tar.gz.sha256

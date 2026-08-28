@@ -77,8 +77,9 @@ For whoever runs the server:
 - [Extending](docs/extending.md), custom access providers and backends
 - [Design](docs/design.md), why it's built the way it is
 
-Deploy specifics (Compose configuration and Incus certificates) are in
-[`server/deploy/README.md`](server/deploy/README.md).
+Operators use the separate `cawl-server` tool without a checkout
+(`uvx cawl-server provision`); see
+[`server-cli/README.md`](server-cli/README.md).
 
 ## License
 

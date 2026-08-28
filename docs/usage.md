@@ -12,7 +12,7 @@ cawl up acme-cms --name acme-dev --arg branch=feature/search
 cawl ssh acme-dev
 ```
 
-VS Code, Cursor and JetBrains all speak SSH, and so do `rsync`, `scp` and
+VS Code, Zed and JetBrains all speak SSH, and so do `rsync`, `scp` and
 `sshfs`. None of them know about cawl, so hand them a config once:
 
 ```bash
@@ -25,12 +25,6 @@ line and what it's doing. The code, the services and the data are all on the
 box, and the dev loop feels like local `docker compose`. Your SSH agent comes
 along for the ride with `cawl ssh`, so `git push` from inside the box is just
 you.
-
-Working on files that live on your own machine is the one thing to avoid:
-mounting your laptop into the box means every file the app reads crosses the
-network, and file-change events don't survive the trip, so nothing that watches
-for edits — the reloader, a test watcher, a bundler — will notice them. Keep
-the source on the box, or `rsync` into it.
 
 Dev boxes don't expire, but memory is the thing the hosts actually run out
 of, so when you down tools for a while:

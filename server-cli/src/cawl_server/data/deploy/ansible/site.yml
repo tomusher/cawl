@@ -1,0 +1,34 @@
+---
+# Provision the pieces cawl owns. Select roles with --tags (for example,
+# --tags control-plane) or disable them in group_vars/all.yml.
+- name: Provision Incus
+  hosts: incus
+  become: true
+  roles:
+    - role: incus
+      tags: [incus]
+      when: cawl_provision_incus | bool
+
+- name: Provision the cawl control plane
+  hosts: control_plane
+  become: true
+  roles:
+    - role: control_plane
+      tags: [control-plane]
+      when: cawl_provision_control_plane | bool
+
+- name: Build the cawl base image
+  hosts: incus
+  become: true
+  roles:
+    - role: base_image
+      tags: [base-image]
+      when: cawl_provision_base_image | bool
+
+- name: Verify the deployment
+  hosts: control_plane
+  become: true
+  roles:
+    - role: verify
+      tags: [verify]
+      when: cawl_provision_verify | bool

@@ -1,0 +1,48 @@
+name: Publish PyPI packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish-cawl:
+    name: Publish cawl
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Require the CLI version to match the release tag
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          test "${VERSION#v}" = "$(python -c 'import tomllib; print(tomllib.load(open("cli/pyproject.toml", "rb"))["project"]["version"])')"
+      - name: Build cawl
+        run: uv build --out-dir dist cli
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-cawl-server:
+    name: Publish cawl-server
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Require the operator CLI version to match the release tag
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          test "${VERSION#v}" = "$(python -c 'import tomllib; print(tomllib.load(open("server-cli/pyproject.toml", "rb"))["project"]["version"])')"
+      - name: Build cawl-server
+        run: uv build --out-dir dist server-cli
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

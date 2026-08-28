@@ -113,7 +113,7 @@ compose file owns topology, and the hook owns how it's invoked.
 ## Golden-image pipeline
 
 ```
-base VM image (Ubuntu + Docker + cloud-init + incus-agent)   # deploy/build-base-image.sh
+base VM image (Ubuntu + Docker + cloud-init + incus-agent)   # bundled build-base-image.sh
   └─► per-template golden image (`cawl refresh-image <name>`):
         boot a builder from the base image
         run the template's `build` hook   ── clone, compose build, seed, migrate, stop

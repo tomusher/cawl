@@ -35,8 +35,8 @@ cp /var/lib/incus/server.crt server.crt
 ```
 
 Copy `client.crt`, `client.key`, and `server.crt` to
-`server/deploy/secrets/incus/`. Compose mounts them read-only and the
-canonical `server/deploy/.env.example` points cawl at:
+`/srv/cawl/secrets/incus/`. Compose mounts them read-only and the canonical
+deployment environment points cawl at:
 
 ```ini
 CAWL_RUNTIME=incus_api
@@ -57,7 +57,8 @@ cawl needs a base image containing Docker, Git, SSH, and the `dev` user. From
 the cawl checkout, run:
 
 ```bash
-cd server/deploy
+# The bundled deployment assets are materialised by cawl-server provision.
+cd /srv/cawl
 sudo ./build-base-image.sh --vm
 ```
 

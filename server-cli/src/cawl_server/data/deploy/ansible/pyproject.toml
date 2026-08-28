@@ -1,0 +1,8 @@
+[project]
+name = "cawl-provision"
+version = "0.1.0"
+description = "Pinned operator dependencies for the cawl provisioning playbook"
+requires-python = ">=3.11"
+dependencies = [
+  "ansible-core>=2.18,<2.20",
+]

@@ -1,0 +1,1 @@
+recursive-include src/cawl_server/data/deploy *

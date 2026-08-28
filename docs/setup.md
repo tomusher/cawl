@@ -18,36 +18,40 @@ apt install incus qemu-system
 incus admin init
 ```
 
-Build the base image from the cawl checkout:
-
-```bash
-cd server/deploy
-./build-base-image.sh --vm
-```
+The `cawl-server provision` workflow builds the base image when its
+`base-image` role is enabled. To manage it separately, use the
+version-matched script materialised in `/srv/cawl/build-base-image.sh`.
 
 See [Incus VMs and agent egress](incus.md) for Incus API certificates, VM
 networking, and egress controls.
 
 ## Deploy the control plane
 
-Grab the latest deployment files from [GitHub](https://github.com/tomusher/cawl/releases):
+Install the operator tool with `uv` (no cawl checkout or system Ansible is
+needed). It bundles the version-matched Compose files, scripts, and Ansible
+roles. First write editable configuration examples, then review them and run
+the preflight:
 
 ```bash
-mkdir -p /srv/cawl
-cd  /srv/cawl
-curl -L https://github.com/tomusher/cawl/releases/download/v0.1.0/cawl-server-deploy-v0.1.0.tar.gz | tar -xzf --strip-components=1
+uvx cawl-server init --dir ~/cawl-config
+$EDITOR ~/cawl-config/cawl-provision.yml
+# Run this on the host that will run Incus and the control plane.
+uvx cawl-server provision --config ~/cawl-config/cawl-provision.yml --check
+uvx cawl-server provision --config ~/cawl-config/cawl-provision.yml
 ```
 
-Before the first start or an update, run the bootstrap script. On its first run it prompts for the API/public domains, Incus URL, and ACME DNS settings; it also generates the database and Django secrets. It renders Traefik's static configuration, starts Postgres, applies migrations, starts the stack, and regenerates the existing sandbox routes:
+The configuration contains DNS credentials: keep it out of source control and
+use Ansible Vault in production. The control-plane role writes `/srv/cawl/.env`,
+generates its database and Django secrets, renders Traefik's configuration,
+and starts the Compose stack. Existing Incus hosts and separately managed
+control-plane hosts are supported by the inventory and configuration options.
+
+To update a running control plane, run this on its host. It preserves `.env`
+and `secrets/`, replaces the version-matched deployment files, and reruns the
+bootstrap process:
 
 ```bash
-./bootstrap.sh
-```
-
-The bootstrap script creates `.env` from `.env.example` when needed and prompts for the required values. You can also create and edit it yourself before bootstrapping:
-
-```bash
-cp .env.example .env
+uvx cawl-server update --dir /srv/cawl
 ```
 
 ## Let the cawl server use the Incus API
@@ -90,7 +94,7 @@ For a jump host, set `CAWL_ACCESS=jump` and
 A wildcard record is enough for every exposure:
 
 ```
-*.sbx.example.com  →  the Traefik host public IP
+*.cawl.example.com  →  the Traefik host public IP
 ```
 
 The Compose Traefik service obtains and renews the wildcard certificate with

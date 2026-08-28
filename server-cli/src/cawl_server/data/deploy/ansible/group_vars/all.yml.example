@@ -1,0 +1,33 @@
+---
+# Roles can also be selected with --tags. Set false for infrastructure that is
+# already operated separately.
+cawl_provision_incus: false
+cawl_provision_control_plane: true
+cawl_provision_base_image: false
+cawl_provision_verify: true
+
+# Incus: managed installs the package and applies this *operator-reviewed*
+# preseed. existing only verifies the API and leaves all Incus configuration
+# alone. Remote Incus belongs in the incus inventory group.
+cawl_incus_mode: existing # managed | existing
+cawl_incus_preseed: ""
+
+# Deployment files are bundled with cawl-server and copied to this directory.
+cawl_deploy_dir: /srv/cawl
+
+# Values written to /srv/cawl/.env. Keep this file out of source control; use
+# an Ansible Vault file for real credentials.
+cawl_env:
+  CAWL_API_DOMAIN: cawl.example.com
+  CAWL_PUBLIC_DOMAIN: public.example.com
+  CAWL_INCUS_URL: https://host.docker.internal:8443
+  TRAEFIK_ACME_EMAIL: ops@example.com
+  TRAEFIK_DNS_PROVIDER: cloudflare
+  CF_DNS_API_TOKEN: replace-with-a-dns-api-token
+
+# Set true only after reviewing the resulting trust relationship. The client
+# key is generated on the control-plane machine and installed in its deploy
+# directory; server.crt is read from the Incus host.
+cawl_configure_incus_trust: false
+cawl_incus_trust_name: cawl-server
+cawl_base_image_vm: true
